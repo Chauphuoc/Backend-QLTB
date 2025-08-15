@@ -24,8 +24,8 @@ namespace EquipManagementAPI.Models
             {
                 return StatusGroup switch
                 {
-                    -1 =>"Huy",
-                    0 => "Không sử dụng",
+                    -1 => "Không sử dụng",
+                    0 => "Chờ sử dụng",
                     1 => "Đang sử dụng",
                     _ => "Không xác định"
                 };

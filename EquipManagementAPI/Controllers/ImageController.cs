@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 
 namespace EquipManagementAPI.Controllers
 {
@@ -6,6 +7,13 @@ namespace EquipManagementAPI.Controllers
     [ApiController]
     public class ImageController : ControllerBase
     {
+        private readonly IConfiguration _configuration;
+
+        public ImageController(IConfiguration configuration)
+        {
+            _configuration = configuration;
+        }
+
         [HttpGet]
         public IActionResult GetImage([FromQuery] string path)
         {
@@ -14,11 +22,20 @@ namespace EquipManagementAPI.Controllers
                 if (string.IsNullOrWhiteSpace(path))
                     return BadRequest("Path is empty");
 
-                if (!System.IO.File.Exists(path))
-                    return NotFound($"File not found at: {path}");
+                // Lấy thư mục từ cấu hình
+                var uploadFolder = _configuration["UploadFolder"];
+                if (string.IsNullOrWhiteSpace(uploadFolder))
+                    return StatusCode(500, "UploadFolder chưa được cấu hình trong appsettings.json");
 
-                var imageBytes = System.IO.File.ReadAllBytes(path);
-                var extension = Path.GetExtension(path)?.ToLowerInvariant();
+                // Ghép đường dẫn tuyệt đối
+                var filePath = Path.Combine(uploadFolder, path);
+
+                if (!System.IO.File.Exists(filePath))
+                    return NotFound($"File not found at: {filePath}");
+
+                var imageBytes = System.IO.File.ReadAllBytes(filePath);
+                var extension = Path.GetExtension(filePath)?.ToLowerInvariant();
+
                 var contentType = extension switch
                 {
                     ".jpg" or ".jpeg" => "image/jpeg",

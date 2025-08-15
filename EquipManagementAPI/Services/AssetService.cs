@@ -255,18 +255,18 @@ namespace EquipManagementAPI.Services
                     var check1 = await _context.Equipment.FirstOrDefaultAsync(e => e.QRCode == item && e.ManageUnit == request.Unit);
                     if (check1 == null)
                     {
-                        results.Add($"QRCode {item} không thuộc nhà máy {request.Unit}");
+                        results.Add($"Lỗi: QRCode {item} không thuộc nhà máy {request.Unit}");
                         continue;
                     }
                     var check2 = await _context.Equipment.FirstOrDefaultAsync(e => e.QRCode == item);
                     if (check2 == null)
                     {
-                        results.Add($"QRCode {item} chưa được tạo!");
+                        results.Add($"Lỗi: QRCode {item} chưa được tạo!");
                         continue;
                     }
                     if(!(check2.DocumentType == 1 || check2.DocumentType == 7))
                     {
-                        results.Add($"QRCode {item} chưa được nhập đơn vị quản lý");
+                        results.Add($"Lỗi: QRCode {item} chưa được nhập đơn vị quản lý");
                         continue;
                     }    
                     if (request.Status == 1)
@@ -898,7 +898,7 @@ namespace EquipManagementAPI.Services
         public async Task<List<string>> Process_XacNhanHoanThanh(XacnhanHT_DTO request)
         {
             var result = new List<string>();
-            var yeucau = await _context.yeucauBQLCXacNhan.Where(e=>e.QRCode == request.QRCode).FirstOrDefaultAsync();
+            var yeucau = await _context.yeucauBQLCXacNhan.Where(e=>e.QRCode == request.QRCode && e.PostingDate != null).OrderByDescending(r => r.PostingDate).FirstOrDefaultAsync();
             var repairList = await _context.repairRequests.Where(e => e.No == yeucau.DocNo && e.QRCode == request.QRCode).FirstOrDefaultAsync();
             if (repairList.Status == 1)
             {

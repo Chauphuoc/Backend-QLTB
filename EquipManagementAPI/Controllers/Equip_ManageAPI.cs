@@ -145,11 +145,16 @@ namespace EquipManagementAPI.Controllers
         [HttpGet("locationXSD", Name = "GetLocation")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<ActionResult<LocationXsdDTO>> GetLocationXSD()
+        public async Task<ActionResult<LocationXsdDTO>> GetLocationXSD([FromQuery] string unit)
         {
             try
             {
-                var Locations = await _context.locationXSDs.Select(e =>
+                var check = await _context.Department.FirstOrDefaultAsync(e => e.Code == unit);
+                if (check == null)
+                {
+                    return BadRequest();
+                }
+                var Locations = await _context.locationXSDs.Where(e=>e.DepartmentCode == unit).Select(e =>
                 new LocationXsdDTO
                 {
                     Value = e.Code,
@@ -312,7 +317,7 @@ namespace EquipManagementAPI.Controllers
             var equip = await _service.GetInforEquipHTSC(code);
             if (equip == null)
             {
-                return NotFound($"Lỗi không tìm thấy thiết bị");
+                return NotFound($"Lỗi không tìm thấy thiết bị trong danh sách sửa chữa");
             }
             return Ok(equip);
         }

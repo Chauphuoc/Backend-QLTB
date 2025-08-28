@@ -18,7 +18,7 @@ namespace EquipManagementAPI.Services
         public async Task<List<DocumentEntryHeaderDTO>> GetDocEntryHeader(int type)
         {
             //Dùng Where khi trả về nhiều dòng
-            var documents = await _context.DocumentEntryHeader.Where(a => a.DocumentType == type).OrderByDescending(e=>e.PostingDate).ToListAsync();
+            var documents = await _context.DocumentEntryHeader.Where(a => a.DocumentType == type && a.CheckQR==0 && a.Status == 0).OrderByDescending(e=>e.PostingDate).ToListAsync();
             var exportUnitCode = documents.Select(e => e.ExportingUnit).Distinct().ToList();
            var receiveUnitCode = documents.Select(e => e.ReceivingUnit).Where(code => !string.IsNullOrEmpty(code)).Distinct().ToList();
                 
@@ -57,7 +57,7 @@ namespace EquipManagementAPI.Services
 
         public async Task<List<DocumentEntryHeaderDTO>> GetDocEntryHeader_other(int type)
         {
-            var documents = await _context.DocumentEntryHeader.Where(a => a.DocumentType == type && a.Status == 0).OrderByDescending(e=>e.PostingDate).ToListAsync();
+            var documents = await _context.DocumentEntryHeader.Where(a => a.DocumentType == type && a.CheckQR ==0 && a.Status == 0).OrderByDescending(e=>e.PostingDate).ToListAsync();
             var departments = await _context.Department.ToListAsync(); // lấy toàn bộ
             var vendors = await _context.Vendor.ToListAsync();
 

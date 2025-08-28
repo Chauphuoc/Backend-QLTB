@@ -30,5 +30,28 @@ namespace EquipManagementAPI.Models
                     _ => "Không xác định"
                 };
             } }
+        public string? LastMaintenanceTime { get; set; }
+        public string? PlanTime { get; set; }
+        public string? User { get; set;}
+        public string? MaintenanceType { get; set; }
+        public int? Check {  get; set; } 
+        public string? NamSX { get; set; }
+        public string? NamSD { get; set; }
+        public int? SoNamSD { get; set; }
+
+        public string MaintenanceCheck
+        {
+            get
+            {
+                return Check switch
+                {
+                    -1=>"Không có dữ liệu",
+                    0 => "Chờ bảo dưỡng",
+                    1 => "Đã bảo dưỡng",
+                    2 => "Quá hạn bảo dưỡng",
+                    3 => "Chuyển qua sửa chữa"
+                };
+            }
+        }
     }
 }

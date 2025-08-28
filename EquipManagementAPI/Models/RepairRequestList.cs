@@ -27,7 +27,7 @@ namespace EquipManagementAPI.Models
         public int Status { get; set; }
         public string QRCode { get; set; }
         [Column("Location Code")]
-        public string LocationCode { get; set; }
+        public string? LocationCode { get; set; }
         public int Approve {  get; set; }
         public decimal Duration { get; set; }
     }

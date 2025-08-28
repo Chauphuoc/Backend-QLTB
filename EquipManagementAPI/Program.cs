@@ -1,4 +1,4 @@
-using EquipManagementAPI.Data;
+﻿using EquipManagementAPI.Data;
 using EquipManagementAPI.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
@@ -38,7 +38,13 @@ var app = builder.Build();
 
 app.UseCors("AllowAll");
 
-
+// Đọc đường dẫn từ appsettings.json
+var imagePath = builder.Configuration["ImageStoragePath"];
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(imagePath),
+    RequestPath = "/Upload"
+});
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -54,3 +60,4 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+

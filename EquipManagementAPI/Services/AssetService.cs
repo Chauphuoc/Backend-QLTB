@@ -1,4 +1,5 @@
-﻿using EquipManagementAPI.Data;
+﻿using Azure.Core;
+using EquipManagementAPI.Data;
 using EquipManagementAPI.Helpers;
 using EquipManagementAPI.Models;
 using EquipManagementAPI.Models.DTOs;
@@ -533,14 +534,14 @@ namespace EquipManagementAPI.Services
                     results.Add($"Lỗi dữ liệu QRCode {request.QRCode} không được tìm thấy!");
                     return results;
                 }
-                if (equip.Status ==0)
-                {
-                    results.Add($"Lỗi thiết bị {request.QRCode} chưa được sử dụng!");
-                    return results;
-                }
+                //if (equip.Status ==0)
+                //{
+                //    results.Add($"Lỗi thiết bị {request.QRCode} chưa được sử dụng!");
+                //    return results;
+                //}
                 if (equip.Status == 2)
                 {
-                    results.Add($"Lỗi thiêt bị {request.QRCode} đang được sửa chữa!");
+                    results.Add($"Lỗi thiết bị {request.QRCode} đang được sửa chữa!");
                     return results;
                 }
                 var NoSeriesLine = await _context.noSeriesLine.Where(e=>e.Code == "YCSC" && e.SeriesCode =="QLTB").FirstOrDefaultAsync();
@@ -607,7 +608,7 @@ namespace EquipManagementAPI.Services
                 Serial = repairList.Serial,
                 Brand = repairList.Brand,
                 Model = repairList.Model,
-                WorkShift = workShift.Name,
+                WorkShift = workShift?.Name,
                 Status = 0
         };
             
@@ -669,7 +670,7 @@ namespace EquipManagementAPI.Services
             return result;
         } 
 
-        public async Task<EquipmentDTO> GetInforEquipment (string code)
+        public async Task<EquipmentDTO> GetInforEquipment (string code, HttpRequest request)
         {
             var equipment = await _context.Equipment.FirstOrDefaultAsync(u=> u.QRCode == code);
             if (equipment == null)
@@ -677,8 +678,20 @@ namespace EquipManagementAPI.Services
                 return null;
             }
             var location = await _context.locationXSDs.Where(e => e.Code == equipment.LocationCode).Select(e => e.Name).FirstOrDefaultAsync();
-            
-            var result = new EquipmentDTO {
+
+            var baseUrl = $"{request.Scheme}://{request.Host}";
+
+            var history = await _context.maintenanceHistory.Where(e=>e.QRCode==code).OrderByDescending(r=>r.PostingDate).FirstOrDefaultAsync();
+            var tracking = await _context.maintenanceTrackings.Where(e=>e.QRCode == code).FirstOrDefaultAsync();
+
+            string employeeName = string.Empty;
+            if (history != null && !string.IsNullOrEmpty(history.UserID))
+            {
+                var employee = await _context.employee
+                    .FirstOrDefaultAsync(e => e.No == history.UserID);
+                employeeName = employee?.Name ?? string.Empty;
+            }
+            var resultDTO = new EquipmentDTO {
                 EquipmentCode = equipment.EquipmentCode,
                 ManageUnit = equipment.ManageUnit,
                 EquipmentGroupCode = equipment.EquipmentGroupCode,
@@ -686,13 +699,21 @@ namespace EquipManagementAPI.Services
                 SerialNumber = equipment.SerialNumber,
                 Brand = equipment.Brand,
                 QRCode = equipment.QRCode,
-                Image = equipment.Image,
+                NamSX = equipment?.ManufacturingYear,
+                NamSD = equipment?.YearOfImport,
+                SoNamSD = equipment?.UsageYears,
+                Image = equipment.Image == null ? null : $"{baseUrl}/{equipment.Image}",
                 LocationCode = equipment.LocationCode,
                 LocationName = location,
                 Status = equipment.Status,
                 StatusGroup = equipment.StatusGroup,
+                LastMaintenanceTime = history?.PostingDate?.ToString("dd/MM/yyyy") ?? string.Empty,
+                PlanTime = history?.NextMaintenanceTime?.ToString("dd/MM/yyyy"),
+                User = employeeName,
+                MaintenanceType = history?.MaintenanceType,
+                Check = tracking?.Status ?? -1
             };
-            return result;
+            return resultDTO;
         }
 
         public async Task<InforRequestSC> GetInforEquipHTSC(string qrCode)
@@ -711,11 +732,11 @@ namespace EquipManagementAPI.Services
             var result = new InforRequestSC
             {
                 QRCode = qrCode,
-                EquipmentName = equipGroup.Name,
+                EquipmentName = equipGroup?.Name,
                 Serial = repairList.Serial,
                 Brand = repairList.Brand,
                 Model = repairList.Model,
-                WorkShift = workShift.Name,
+                WorkShift = workShift?.Name,
                
                 Status = 7
             };
@@ -847,23 +868,29 @@ namespace EquipManagementAPI.Services
         public async Task<List<XacnhanHT_DTO>> Process_GetListYeuCauXN()
         {
             var list = await _context.yeucauBQLCXacNhan.Where(e=>e.Status ==0).ToListAsync();
+            
             var result = new List<XacnhanHT_DTO>();
             foreach (var item in list)
             {
+                var employee = await _context.employee.FirstOrDefaultAsync(e => e.No == item.Requester);
+                var requesterName = employee != null ? employee.Name : string.Empty;
                 var equipGroup = await _context.equipmentGroup.Where(e => e.Code == item.EquipmentGroupCode).FirstOrDefaultAsync();
-                var LocationXSD = await _context.locationXSDs.Where(e=>e.Code ==  item.LocationCode).FirstOrDefaultAsync();
+                var equipName = equipGroup !=null ? equipGroup.Name : string.Empty;
+                var locationXSD = await _context.locationXSDs.Where(e=>e.Code ==  item.LocationCode).FirstOrDefaultAsync();
+                var locationName = locationXSD !=null ? locationXSD.Name : string.Empty;
                 var repairType = await _context.repairType.Where(e=>e.Code == item.RepairType).FirstOrDefaultAsync();
+                var repairName = repairType != null ? repairType.Name : string.Empty;
                 var order = new XacnhanHT_DTO
                 {
                     RowID = item.RowID,
                     QRCode = item.QRCode,
                     EquipmentGroup = item.EquipmentGroupCode,
-                    Requester = item.Requester,
+                    Requester = requesterName,
                     LocationCode = item.LocationCode,
-                    Location = LocationXSD.Name,
-                    EquipmentName = equipGroup.Name,
+                    Location = locationName,
+                    EquipmentName = equipName,
                     RepairType = item.RepairType,
-                    RepairTypeName = repairType.Name,
+                    RepairTypeName = repairName,
                     Description = item.Description,
                 };
                 result.Add(order);
@@ -878,6 +905,8 @@ namespace EquipManagementAPI.Services
             var result = new List<RepairListDTO>();
             foreach (var item in list)
             {
+                var employee = await _context.employee.FirstOrDefaultAsync(e => e.No == item.Reporter);
+                var requesterName = employee != null ? employee.Name : string.Empty;
                 var equipGroup = await _context.equipmentGroup.Where(e => e.Code == item.EquipmentGroupCode).FirstOrDefaultAsync();
                 var LocationXSD = await _context.locationXSDs.Where(e => e.Code == item.LocationCode).FirstOrDefaultAsync();
                 var order = new RepairListDTO
@@ -885,13 +914,12 @@ namespace EquipManagementAPI.Services
                     No = item.No,
                     QRCode = item.QRCode,
                     EquipmentName = equipGroup.Name,
-                    Location = LocationXSD.Name,
+                    Location = LocationXSD?.Name,
                     Model = item.Model,
-                    Reporter = item.Reporter,
+                    Reporter = requesterName,
                 };
                 result.Add(order);
             }
-
             return result;
         }
 

@@ -35,7 +35,7 @@ namespace EquipManagementAPI.Controllers
             {
                 return BadRequest();
             }
-            var equip = await _service.GetInforEquipment(code);
+            var equip = await _service.GetInforEquipment(code,Request);
            
             if (equip == null)
             {
@@ -205,7 +205,7 @@ namespace EquipManagementAPI.Controllers
             }
         }
 
-        [HttpPost("maintenanceContent", Name = "GetMaintenanceContent")]
+        [HttpPost("maintenanceContent")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]

@@ -28,5 +28,6 @@ namespace EquipManagementAPI.Data
         public DbSet<RepairType> repairType { get; set; }
         public DbSet<YeucauBQLCXacNhan> yeucauBQLCXacNhan { get; set; }
         public DbSet<RepairContent> repairContent { get; set; }
+        public DbSet<Employee> employee { get; set; }
     }
 }

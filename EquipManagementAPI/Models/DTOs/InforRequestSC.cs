@@ -9,7 +9,7 @@ namespace EquipManagementAPI.Models.DTOs
         public string Serial {  get; set; }
         public string Brand { get; set; }
         public string Model { get; set; }
-        public string WorkShift { get; set; }
+        public string? WorkShift { get; set; }
         public int Status {  get; set; }
         public string? StatusName
         { get

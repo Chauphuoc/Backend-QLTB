@@ -17,6 +17,8 @@ namespace EquipManagementAPI.Services
         Task<InforRequestSC> GetInforEquipHTSC(string code);
         Task<List<string>> Process_BatDauSuaChua(RequestSuaChua request);
         Task<EquipmentDTO> GetInforEquipment(string code, HttpRequest request);
+        Task<EquipmentDTO> GetInforEquipmentByCode(string code, HttpRequest request);
+        Task<EquipmentDTO> GetInforEquipmentBySerial(string code, HttpRequest request);
         Task<List<ReasonTypeDTO>> GetReasonType();
         Task<List<string>> Process_HTSC(RequestHTSC request);
 

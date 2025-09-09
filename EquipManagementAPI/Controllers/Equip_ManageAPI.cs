@@ -44,6 +44,45 @@ namespace EquipManagementAPI.Controllers
             return Ok(equip);
         }
 
+        [HttpGet("serial/{serial}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<EquipmentDTO>> GetEquipmentBySerial(string serial)
+        {
+
+            if (serial == "")
+            {
+                return BadRequest();
+            }
+            var equip = await _service.GetInforEquipmentBySerial(serial, Request);
+
+            if (equip == null)
+            {
+                return NotFound($"Không tìm thấy mã thiết bị!");
+            }
+            return Ok(equip);
+        }
+
+        [HttpGet("code/{equipCode}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<EquipmentDTO>> GetEquipmentByEquipCode (string equipCode)
+        {
+            if (equipCode == "")
+            {
+                return BadRequest();
+            }
+            var equip = await _service.GetInforEquipmentByCode(equipCode, Request);
+
+            if (equip == null)
+            {
+                return NotFound($"Không tìm thấy mã thiết bị!");
+            }
+            return Ok(equip);
+        }
+
         [HttpPost("scan")]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status200OK)]

@@ -716,6 +716,99 @@ namespace EquipManagementAPI.Services
             return resultDTO;
         }
 
+        public async Task<EquipmentDTO> GetInforEquipmentByCode(string code, HttpRequest request)
+        {
+            var equipment = await _context.Equipment.FirstOrDefaultAsync(u => u.EquipmentCode == code);
+            if (equipment == null)
+            {
+                return null;
+            }
+            var location = await _context.locationXSDs.Where(e => e.Code == equipment.LocationCode).Select(e => e.Name).FirstOrDefaultAsync();
+
+            var baseUrl = $"{request.Scheme}://{request.Host}";
+
+            var history = await _context.maintenanceHistory.Where(e => e.QRCode == code).OrderByDescending(r => r.PostingDate).FirstOrDefaultAsync();
+            var tracking = await _context.maintenanceTrackings.Where(e => e.QRCode == code).FirstOrDefaultAsync();
+
+            string employeeName = string.Empty;
+            if (history != null && !string.IsNullOrEmpty(history.UserID))
+            {
+                var employee = await _context.employee
+                    .FirstOrDefaultAsync(e => e.No == history.UserID);
+                employeeName = employee?.Name ?? string.Empty;
+            }
+            var resultDTO = new EquipmentDTO
+            {
+                EquipmentCode = equipment.EquipmentCode,
+                ManageUnit = equipment.ManageUnit,
+                EquipmentGroupCode = equipment.EquipmentGroupCode,
+                Model = equipment.Model,
+                SerialNumber = equipment.SerialNumber,
+                Brand = equipment.Brand,
+                QRCode = equipment.QRCode,
+                NamSX = equipment?.ManufacturingYear,
+                NamSD = equipment?.YearOfImport,
+                SoNamSD = equipment?.UsageYears,
+                Image = equipment.Image == null ? null : $"{baseUrl}/{equipment.Image}",
+                LocationCode = equipment.LocationCode,
+                LocationName = location,
+                Status = equipment.Status,
+                StatusGroup = equipment.StatusGroup,
+                LastMaintenanceTime = history?.PostingDate?.ToString("dd/MM/yyyy") ?? string.Empty,
+                PlanTime = history?.NextMaintenanceTime?.ToString("dd/MM/yyyy"),
+                User = employeeName,
+                MaintenanceType = history?.MaintenanceType,
+                Check = tracking?.Status ?? -1
+            };
+            return resultDTO;
+        }
+        public async Task<EquipmentDTO> GetInforEquipmentBySerial(string code, HttpRequest request)
+        {
+            var equipment = await _context.Equipment.FirstOrDefaultAsync(u => u.SerialNumber == code);
+            if (equipment == null)
+            {
+                return null;
+            }
+            var location = await _context.locationXSDs.Where(e => e.Code == equipment.LocationCode).Select(e => e.Name).FirstOrDefaultAsync();
+
+            var baseUrl = $"{request.Scheme}://{request.Host}";
+
+            var history = await _context.maintenanceHistory.Where(e => e.QRCode == code).OrderByDescending(r => r.PostingDate).FirstOrDefaultAsync();
+            var tracking = await _context.maintenanceTrackings.Where(e => e.QRCode == code).FirstOrDefaultAsync();
+
+            string employeeName = string.Empty;
+            if (history != null && !string.IsNullOrEmpty(history.UserID))
+            {
+                var employee = await _context.employee
+                    .FirstOrDefaultAsync(e => e.No == history.UserID);
+                employeeName = employee?.Name ?? string.Empty;
+            }
+            var resultDTO = new EquipmentDTO
+            {
+                EquipmentCode = equipment.EquipmentCode,
+                ManageUnit = equipment.ManageUnit,
+                EquipmentGroupCode = equipment.EquipmentGroupCode,
+                Model = equipment.Model,
+                SerialNumber = equipment.SerialNumber,
+                Brand = equipment.Brand,
+                QRCode = equipment.QRCode,
+                NamSX = equipment?.ManufacturingYear,
+                NamSD = equipment?.YearOfImport,
+                SoNamSD = equipment?.UsageYears,
+                Image = equipment.Image == null ? null : $"{baseUrl}/{equipment.Image}",
+                LocationCode = equipment.LocationCode,
+                LocationName = location,
+                Status = equipment.Status,
+                StatusGroup = equipment.StatusGroup,
+                LastMaintenanceTime = history?.PostingDate?.ToString("dd/MM/yyyy") ?? string.Empty,
+                PlanTime = history?.NextMaintenanceTime?.ToString("dd/MM/yyyy"),
+                User = employeeName,
+                MaintenanceType = history?.MaintenanceType,
+                Check = tracking?.Status ?? -1
+            };
+            return resultDTO;
+        }
+
         public async Task<InforRequestSC> GetInforEquipHTSC(string qrCode)
         {
 

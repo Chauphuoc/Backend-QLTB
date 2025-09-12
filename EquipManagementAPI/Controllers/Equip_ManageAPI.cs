@@ -460,6 +460,49 @@ namespace EquipManagementAPI.Controllers
             return Ok(result);
 
         }
+
+        [HttpDelete("yeucauSC/{*code}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult> XoaYeucauSC( string code)
+        {
+            if (string.IsNullOrWhiteSpace(code))
+            {
+                return BadRequest(new { message = "Mã yêu cầu không được để trống." });
+            }
+
+            var result = await _service.DeleteYeuCauSC(code);
+
+            if (!result.Success)
+            {
+                // Nếu không tìm thấy yêu cầu
+                if (result.Message.Contains("không tìm thấy"))
+                    return NotFound(new { message = result.Message });
+
+                // Nếu có dữ liệu liên quan
+                if (result.Message.Contains("lịch sử sửa chữa"))
+                    return Conflict(new { message = result.Message });
+
+                // Lỗi khác
+                return BadRequest(new { message = result.Message });
+            }
+
+            return Ok(new { message = result.Message });
+        }
+
+        [HttpGet("repairHistory/{code}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<IEnumerable<RepairHistoryListDTO>>> GetList_RepairHistory(string code)
+        {
+            IEnumerable<RepairHistoryListDTO> dtoList;
+
+            dtoList = await _service.Process_GetListRepairHistory(code);
+
+            return Ok(dtoList);
+        }
     }
 }
  

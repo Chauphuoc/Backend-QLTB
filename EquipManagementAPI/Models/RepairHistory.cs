@@ -26,5 +26,6 @@ namespace EquipManagementAPI.Models
         public string UserId { get; set; }
         public string QRCode { get; set; }
         public int Status { get; set; }
+        public string? Reason { get; set; }
     }
 }

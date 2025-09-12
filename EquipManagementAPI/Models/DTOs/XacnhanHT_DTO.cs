@@ -12,5 +12,6 @@
         public string? RepairType { get; set; }
         public string? RepairTypeName { get; set; }
         public string? Description { get; set; }
+        public string? Reason { get; set; }
     }
 }

@@ -27,6 +27,8 @@
       "launchBrowser": true,
       "launchUrl": "swagger",
       "applicationUrl": "http://0.0.0.0:7117",
+      //"applicationUrl": "https://appmobile.thianco.com.vn:5067",
+
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       }

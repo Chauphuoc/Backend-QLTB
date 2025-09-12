@@ -27,5 +27,7 @@ namespace EquipManagementAPI.Services
         Task<List<RepairListDTO>> Process_GetListYeuCau();
         Task<List<string>> Process_XacNhanHoanThanh(XacnhanHT_DTO request);
         Task<List<string>> Process_KhongHTSC(XacnhanHT_DTO request);
+        Task<(bool Success, string Message)> DeleteYeuCauSC(string code);
+        Task<List<RepairHistoryListDTO>> Process_GetListRepairHistory(string code);
     }
 }

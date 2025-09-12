@@ -358,12 +358,13 @@ namespace EquipManagementAPI.Services
                 .Select(e=>e.Task).ToListAsync();
         }
 
-        public async Task<List<string>> ProcessScan_BaoDuong (RequestScanMaintenance request)
+
+        public async Task<List<string>> ProcessScan_BaoDuong(RequestScanMaintenance request)
         {
             var results = new List<string>();
             var checkMainTrack = await _context.maintenanceTrackings
             .FirstOrDefaultAsync(e => e.QRCode == request.QRCode && e.MaintenanceType == request.type);
-            
+
             var checkMainTrackWeek = await _context.maintenanceTrackingsWeek
                 .FirstOrDefaultAsync(e => e.QRCode == request.QRCode && e.MaintenanceType == request.type);
 
@@ -398,7 +399,7 @@ namespace EquipManagementAPI.Services
             if (request.type == "1W")
             {
                 var equipGroup = checkMainTrackWeek?.EquipmentGroupCode;
-                var nextNgayBD = checkMainTrackWeek?.NextMaintenance??DateTime.Now;
+                var nextNgayBD = checkMainTrackWeek?.NextMaintenance ?? DateTime.Now;
                 var unit = checkMainTrackWeek?.ManageUnit;
                 var status = checkMainTrackWeek?.Status;
                 if (status == 1)
@@ -422,23 +423,32 @@ namespace EquipManagementAPI.Services
                     NextMaintenanceTime = checkMainTrackWeek.NextMaintenance
                 };
                 _context.maintenanceHistory.Add(newHistory);
+                await _context.SaveChangesAsync();
+
                 foreach (var item in request.Content)
                 {
-                    var newTask = new MaintenanceTask
+                    var newCheckList = new MaintenanceCheckList
                     {
-                        QRCode = request.QRCode,
-                        PostingDate = DateTime.Now,
+                        HistoryID = newHistory.Id,
+                        MaintenanceType = request.type,
+                        EquipGroup = equip?.EquipmentGroupCode,
                         Task = item,
-                        Type = request.type,
-                        
+                        Status = 1
                     };
-                    _context.maintenanceTasks.Add(newTask);
+                    _context.maintenanceCheckList.Add(newCheckList);
                 }
-                checkMainTrackWeek.LastMaintenanceTime = DateTime.Now;
-                checkMainTrackWeek.NextMaintenance = nextNgayBD.AddDays(7);
-                checkMainTrackWeek.MaintenanceType = request.type;
-                checkMainTrackWeek.LocationCode = equip.LocationCode ?? "";
-                await _context.SaveChangesAsync();
+                // Cập nhật lại thông tin tracking
+                var total = await _context.maintenanceContents.CountAsync(e => e.EquipGroupCode == equipGroup && e.MaintenanceType == request.type);
+                var done = await _context.maintenanceCheckList.CountAsync(e => e.HistoryID == newHistory.Id && e.MaintenanceType == request.type);
+                if (total > 0 && total == done)
+                {
+                    checkMainTrackWeek.LastMaintenanceTime = DateTime.Now;
+                    checkMainTrackWeek.NextMaintenance = nextNgayBD.AddDays(7);
+                    checkMainTrackWeek.MaintenanceType = request.type;
+                    checkMainTrackWeek.LocationCode = equip.LocationCode ?? "";
+                    await _context.SaveChangesAsync();
+                }
+                
             }
             else
             {
@@ -449,10 +459,10 @@ namespace EquipManagementAPI.Services
                 // Nếu thiết bị đã bảo dưỡng
                 if (status == 1)
                 {
-                     results.Add($"Lỗi QRCode {request.QRCode} đã được bảo dưỡng");
+                    results.Add($"Lỗi QRCode {request.QRCode} đã được bảo dưỡng");
                     return results;
                 }
-                                               // Tạo lịch sử bảo dưỡng mới
+                // Tạo lịch sử bảo dưỡng mới
                 var newHistory = new MaintenanceHistory
                 {
                     EquipmentCode = equip.EquipmentCode,
@@ -470,44 +480,53 @@ namespace EquipManagementAPI.Services
                 };
 
                 _context.maintenanceHistory.Add(newHistory);
+                await _context.SaveChangesAsync();
+
                 foreach (var item in request.Content)
                 {
-                    var newTask = new MaintenanceTask
+                    var newCheckList = new MaintenanceCheckList
                     {
-                        QRCode = request.QRCode,
-                        PostingDate = DateTime.Now,
+                        HistoryID = newHistory.Id,
+                        MaintenanceType = request.type,
+                        EquipGroup = equip?.EquipmentGroupCode,
                         Task = item,
-                        Type = request.type
+                        Status = 1
                     };
-                    _context.maintenanceTasks.Add(newTask);
+                    _context.maintenanceCheckList.Add(newCheckList);
                 }
-                
+
 
                 // Cập nhật lại thông tin tracking
-                checkMainTrack.LastMaintenanceTime = DateTime.Now;
-                checkMainTrack.LocationCode = equip.LocationCode ?? "";
-                checkMainTrack.MocBDGanNhat = checkMainTrack.NextMaintenance;
-
-                switch (request.type)
+                var total = await _context.maintenanceContents.CountAsync(e => e.EquipGroupCode == equipGroup && e.MaintenanceType == request.type);
+                var done = await _context.maintenanceCheckList.CountAsync(e => e.HistoryID == newHistory.Id && e.MaintenanceType == request.type);
+                if (total > 0 && total == done)
                 {
-                    case "3M":
-                        checkMainTrack.NextMaintenance = nextNgayBD.AddMonths(3) ;
-                        checkMainTrack.MaintenanceType = "6M";
-                        break;
-                    case "6M":
-                        checkMainTrack.NextMaintenance = nextNgayBD.AddMonths(3);
-                        checkMainTrack.MaintenanceType = "3M";
-                        break;
-                    case "1M":
-                        checkMainTrack.NextMaintenance = nextNgayBD.AddMonths(1);
-                        checkMainTrack.MaintenanceType = "1M";
-                        break;
-                    case "1Y":
-                        checkMainTrack.NextMaintenance = nextNgayBD.AddMonths(12);
-                        checkMainTrack.MaintenanceType = "1Y";
-                        break;
-                }
+                    checkMainTrack.LastMaintenanceTime = DateTime.Now;
+                    checkMainTrack.LocationCode = equip.LocationCode ?? "";
+                    checkMainTrack.MocBDGanNhat = checkMainTrack.NextMaintenance;
 
+                    switch (request.type)
+                    {
+                        case "3M":
+                            checkMainTrack.NextMaintenance = nextNgayBD.AddMonths(3);
+                            checkMainTrack.MaintenanceType = "6M";
+                            break;
+                        case "6M":
+                            checkMainTrack.NextMaintenance = nextNgayBD.AddMonths(3);
+                            checkMainTrack.MaintenanceType = "3M";
+                            break;
+                        case "1M":
+                            checkMainTrack.NextMaintenance = nextNgayBD.AddMonths(1);
+                            checkMainTrack.MaintenanceType = "1M";
+                            break;
+                        case "1Y":
+                            checkMainTrack.NextMaintenance = nextNgayBD.AddMonths(12);
+                            checkMainTrack.MaintenanceType = "1Y";
+                            break;
+                    }
+                }
+               
+               
                 try
                 {
                     await _context.SaveChangesAsync();
@@ -1090,6 +1109,7 @@ namespace EquipManagementAPI.Services
                     CreatedDate = DateTime.Now,
                     UserId = request.Requester,
                     QRCode = request.QRCode,
+                    Reason = request.Reason,
                     Status = 4
                 };
 
@@ -1102,6 +1122,56 @@ namespace EquipManagementAPI.Services
                 result.Add($"Lỗi: thiết bị {request.QRCode} chưa được sửa chữa!");
             }
             
+            return result;
+        }
+        public async Task<(bool Success, string Message)> DeleteYeuCauSC (string code)
+        {
+            var repairRequest = await _context.repairRequests.FirstOrDefaultAsync(e => e.No == code);
+
+            if (repairRequest == null)
+            {
+                return (false, $"Không tìm thấy yêu cầu sửa chữa");
+            }
+            var repairHis = await _context.repairHistory.FirstOrDefaultAsync(e => e.No == code && e.Status != 0);
+
+            if (repairHis != null)
+            {
+                return (false, $"Không thể xoá yêu cầu vì đã có lịch sử sửa chữa liên quan.");
+            }
+            _context.repairRequests.Remove(repairRequest);
+            await _context.SaveChangesAsync();
+
+            return (true, $"Đã xoá thành công yêu cầu sửa chữa");
+        }
+
+        public async Task<List<RepairHistoryListDTO>> Process_GetListRepairHistory(string code)
+        {
+            var repairList = await _context.repairRequests.Where(e=>e.EquipmentCode == code).OrderByDescending(r => r.PostingDate).ToListAsync();
+            var result = new List<RepairHistoryListDTO>();
+            foreach(var item in repairList)
+            {
+                var content = await _context.repairContent.FirstOrDefaultAsync(e => e.DocNo == item.No);
+                var itemRepair = new RepairHistoryListDTO
+                {
+                    id = item.No,
+                    equipCode = item.EquipmentCode,
+                    postingDate = item.PostingDate.ToString("dd/MM/yyyy"),
+                    title = content?.Name,
+                    assignee = item.Reporter,
+                    content = content?.Detail,
+                    status = item.Status switch
+                    {
+                        0 => "WAITING",
+                        1 => "IN_PROGRESS",
+                        2 => "DONE",
+                    },
+                    fromDate = item?.FromDate?.ToString("dd/MM/yyyy") ?? string.Empty,
+                    toDate = item?.ToDate?.ToString("dd/MM/yyyy") ?? string.Empty
+                    //history?.PostingDate?.ToString("dd/MM/yyyy") ?? string.Empty,
+                };
+                result.Add(itemRepair);
+            }
+
             return result;
         }
     }

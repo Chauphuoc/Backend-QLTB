@@ -6,7 +6,7 @@ namespace EquipManagementAPI.Models
     public class MaintenanceHistory
     {
         [Column("RowID")]
-        public int Id { get; set; }
+        public int RowID { get; set; }
         [Column("Equipment Code")]
         public string? EquipmentCode { get; set; }
         [Column("Equipment Group Code")]
@@ -26,5 +26,8 @@ namespace EquipManagementAPI.Models
         public string? MaintenanceType { get; set; }
         [Column("Next maintenance time")]
         public DateTime? NextMaintenanceTime { get; set;}
+        [Column("Id")]
+        public int Id { get; set; }
+        public int? Status { get; set; }    
     }
 }

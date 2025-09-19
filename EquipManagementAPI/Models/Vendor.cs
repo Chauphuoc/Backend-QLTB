@@ -2,7 +2,7 @@
 
 namespace EquipManagementAPI.Models
 {
-    [Table("VendorView")]
+    [Table("Vendor QLTB")]
     public class Vendor
     {
         [Column("RowID")]

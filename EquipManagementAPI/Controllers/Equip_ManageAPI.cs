@@ -289,6 +289,48 @@ namespace EquipManagementAPI.Controllers
                 return BadRequest(ex.Message);
             }
         }
+
+        
+        [HttpPost("get-remaining")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> GetRemainingTasks([FromBody] RequestRemaining request)
+        {
+            if (string.IsNullOrWhiteSpace(request.QRCode) || string.IsNullOrWhiteSpace(request.MaintenanceType))
+            {
+                return BadRequest("Thiếu QRCode hoặc loại bảo dưỡng.");
+            }
+            var result = await _service.GetRemainingTask(request);
+            if (result == null)
+            {
+                return NotFound("Không tìm thấy nội dung bảo dưỡng.");
+            }
+            return Ok(result);
+                      
+        }
+
+        [HttpGet("MaintenanceHistory/{code}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<MaintenanceHistoryDTO>> GetMaintenanceHistory(string code)
+        {
+            
+                IEnumerable<MaintenanceHistoryDTO> dtoList;
+
+                dtoList = await _service.Process_GetMaintenanceHistory(code);
+            if (dtoList == null)
+            {
+                return NotFound("Không có lịch sử");
+            }
+                
+
+                return Ok(dtoList);
+           
+        }
+
+
         [HttpPost("requireSC")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status200OK)]
@@ -302,6 +344,27 @@ namespace EquipManagementAPI.Controllers
                     return BadRequest();
                 }
                 var result = await _service.Process_SuaChua(request);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPost("baoduong/requireSC")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<ActionResult> BaoDuong_RequestSuaChua([FromBody] RequestSuaChua request)
+        {
+            try
+            {
+                if (request == null || string.IsNullOrWhiteSpace(request.QRCode))
+                {
+                    return BadRequest();
+                }
+                var result = await _service.Process_BaoDuongSuaChua(request);
                 return Ok(result);
             }
             catch (Exception ex)
@@ -465,14 +528,14 @@ namespace EquipManagementAPI.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult> XoaYeucauSC( string code)
+        public async Task<ActionResult> XoaYeucauSC( string code, [FromQuery] string userID)
         {
             if (string.IsNullOrWhiteSpace(code))
             {
                 return BadRequest(new { message = "Mã yêu cầu không được để trống." });
             }
 
-            var result = await _service.DeleteYeuCauSC(code);
+            var result = await _service.DeleteYeuCauSC(code,userID);
 
             if (!result.Success)
             {
@@ -502,6 +565,29 @@ namespace EquipManagementAPI.Controllers
             dtoList = await _service.Process_GetListRepairHistory(code);
 
             return Ok(dtoList);
+        }
+
+        [HttpGet("yeucau/count")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<int>> GetCountYeucau()
+        {
+            
+            var equip = await _context.repairRequests.Where(e=>e.Status==0).CountAsync();
+            
+            return Ok(equip);
+        }
+        [HttpGet("xacnhan/count")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<int>> GetCountXacNhan()
+        {
+
+            var equip = await _context.yeucauBQLCXacNhan.Where(e => e.Status == 0).CountAsync();
+
+            return Ok(equip);
         }
     }
 }

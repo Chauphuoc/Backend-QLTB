@@ -14,7 +14,9 @@ namespace EquipManagementAPI.Models
         [Column("Equip Group")]
         public string? EquipGroup { get; set; }
         public string? Task { get; set; }
-        public int Status { get; set; }
         public string Note { get; set; }
+        [Column("Maintenance Time")]
+        public DateTime? MaintenanceTime { get; set; }
+        public string EquipCode { get; set; }
     }
 }

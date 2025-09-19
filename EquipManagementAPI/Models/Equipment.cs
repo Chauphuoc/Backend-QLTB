@@ -42,7 +42,7 @@ namespace EquipManagementAPI.Models
         public decimal? Price { get; set; }
         [Column("Technical Document")]
         public string? TechnicalDoc { get; set; }
-        public string? Video { get; set; }
+        public string? LogoCty { get; set; }
         [Column("Warranty Date")]
         public DateTime? WarrantyDate { get; set; }
         [Column("Next Service Date")]

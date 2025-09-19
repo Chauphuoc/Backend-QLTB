@@ -9,6 +9,7 @@ namespace EquipManagementAPI.Models
         public string EquipmentCode  {  get; set; }
         
         public string? ManageUnit { get; set; }
+        public string? ManageUnitName { get; set; }
         public string? EquipmentGroupCode { get; set; }
         public string? Model { get; set; }
         public string SerialNumber { get; set; }
@@ -45,11 +46,12 @@ namespace EquipManagementAPI.Models
             {
                 return Check switch
                 {
-                    -1=>"Không có dữ liệu",
+               
                     0 => "Chờ bảo dưỡng",
                     1 => "Đã bảo dưỡng",
                     2 => "Quá hạn bảo dưỡng",
-                    3 => "Chuyển qua sửa chữa"
+                    3 => "Chuyển qua sửa chữa",
+                    _ => "Không có dữ liệu"
                 };
             }
         }

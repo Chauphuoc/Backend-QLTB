@@ -15,7 +15,7 @@ namespace EquipManagementAPI.Models
         public string EquipmentGroupCode { get; set; }
         public string Requester {  get; set; }
         [Column("Location Code")]
-        public string LocationCode { get; set; }
+        public string? LocationCode { get; set; }
         public int Status {  get; set; }
         [Column("Repair Type")]
         public string RepairType { get; set; }

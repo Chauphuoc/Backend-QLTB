@@ -3,15 +3,17 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace EquipManagementAPI.Models;
 
-[Table("Repair Type")]
-public class RepairType
+[Table("QLTB_Roles")]
+public class Roles
 {
     [Key]
-    public int RowID { get; set; }
-
-    public string Code { get; set; }
+    public int Id { get; set; }
 
     public string Name { get; set; }
 
     public string Description { get; set; }
+
+    public int Level { get; set; }
+
+    public int isActive { get; set; }
 }

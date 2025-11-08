@@ -1,9 +1,6 @@
-﻿using EquipManagementAPI.Models;
-using EquipManagementAPI.Models.DTOs;
-
-namespace EquipManagementAPI.Helpers
+﻿namespace EquipManagementAPI.Helpers
 {
-    public class DocumentEntryHelper
+    public static class DocumentEntryHelper
     {
         public static string GetDocTypeName(int docType)
         {
@@ -23,21 +20,21 @@ namespace EquipManagementAPI.Helpers
                 11 => "Xuất trả mượn ĐV ngoài",
                 12 => "Xuất trả thuê",
                 13 => "Xuất trả nhà CC",
+                14 => "Xuất cho ĐV ngoài mượn",
                 16 => "Xuất thanh lý",
-                14 => "Xuất cho ĐV ngoài mượn"
+                _ => "Không xác định"
             };
         }
+
         public static string GetStatusName(int status)
         {
             return status switch
             {
                 0 => "Mới",
                 1 => "Mở lại",
-                2 => "Xác nhận"
+                2 => "Xác nhận",
+                _ => "Không xác định"
             };
         }
-
-
-
     }
 }

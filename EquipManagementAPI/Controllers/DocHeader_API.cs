@@ -1,42 +1,36 @@
-﻿using EquipManagementAPI.Data;
+﻿using System.Collections.Generic;
+using System.Threading.Tasks;
 using EquipManagementAPI.Helpers;
 using EquipManagementAPI.Models.DTOs;
 using EquipManagementAPI.Services;
 using Microsoft.AspNetCore.Mvc;
 
-namespace EquipManagementAPI.Controllers
+namespace EquipManagementAPI.Controllers;
+
+[Route("api/DocHeader")]
+[ApiController]
+public class DocHeader_API : ControllerBase
 {
-    [Route("api/DocHeader")]
-    [ApiController]
-    public class DocHeader_API : ControllerBase
+    private readonly IDocEntryService _service;
+
+    public DocHeader_API(IDocEntryService service)
     {
-        private readonly IDocEntryService _service;
+        _service = service;
+    }
 
-        public DocHeader_API(IDocEntryService service)
+    [HttpGet("type")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(401)]
+    [ProducesResponseType(400)]
+    [MaintenanceAuthorize("Admin", "Manager", "Khocty", "Baotri1", "Baotri2")]
+    public async Task<ActionResult<IEnumerable<DocumentEntryHeaderDTO>>> GetDocumentHeaders([FromQuery] int type)
+    {
+        if (type < 0)
         {
-            _service = service;
+            return BadRequest("Trạng thái không hợp lệ");
         }
-
-        [HttpGet("type")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<ActionResult<IEnumerable<DocumentEntryHeaderDTO>>> GetDocumentHeaders([FromQuery] int type)
-        {
-            if(type < 0)
-            {
-                return BadRequest("Trạng thái không hợp lệ");
-            }
-            IEnumerable<DocumentEntryHeaderDTO> dtoList;
-            if (type == 6 || type == 11 || type  == 12 || type==13 || type ==16)
-            {
-                dtoList = await _service.GetDocEntryHeader_other(type);
-            }
-            else
-            {
-                dtoList = await _service.GetDocEntryHeader(type);
-            }
-           
-            return Ok(dtoList);
-        }
+        IEnumerable<DocumentEntryHeaderDTO> dtoList = ((type != 6 && type != 11 && type != 12 && type != 13 && type != 16) ?
+            (await _service.GetDocEntryHeader(type)) : (await _service.GetDocEntryHeader_other(type)));
+        return Ok(dtoList);
     }
 }

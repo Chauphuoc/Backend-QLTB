@@ -17,89 +17,112 @@ namespace EquipManagementAPI.Services
 
         public async Task<List<DocumentEntryHeaderDTO>> GetDocEntryHeader(int type)
         {
-            //Dùng Where khi trả về nhiều dòng
-            var documents = await _context.DocumentEntryHeader.Where(a => a.DocumentType == type && a.CheckQR==0 && a.Status == 0).OrderByDescending(e=>e.PostingDate).ToListAsync();
+            var documents = await (from e in _context.DocumentEntryHeader
+                                   where e.DocumentType == (int?)type && e.CheckQR == (int?)0 && e.Status == (int?)0
+                                   orderby e.PostingDate descending
+                                   select e).ToListAsync();
+
             var exportUnitCode = documents.Select(e => e.ExportingUnit).Distinct().ToList();
-           var receiveUnitCode = documents.Select(e => e.ReceivingUnit).Where(code => !string.IsNullOrEmpty(code)).Distinct().ToList();
-                
-            var departments = await _context.Department.ToListAsync(); // lấy toàn bộ
+
+            var receiveUnitCode = documents
+                .Select(e => e.ReceivingUnit)
+                .Where(code => !string.IsNullOrEmpty(code))
+                .Distinct()
+                .ToList();
+
+            var departments = await _context.Department.ToListAsync();
+
             var receiveUnit = departments
-            .Where(d => receiveUnitCode.Contains(d.Code))
-            .ToDictionary(d => d.Code, d => d.Name);
+                .Where(d => receiveUnitCode.Contains(d.Code))
+                .ToDictionary(d => d.Code, d => d.Name);
 
             var exportUnit = departments
                 .Where(d => exportUnitCode.Contains(d.Code))
                 .ToDictionary(d => d.Code, d => d.Name);
 
-
-            var result = documents.Select(doc => new DocumentEntryHeaderDTO
+            return documents.Select(doc => new DocumentEntryHeaderDTO
             {
                 No = doc.No,
                 ReceivingUnit = doc.ReceivingUnit,
                 ReceivedUnitName = !string.IsNullOrEmpty(doc.ReceivingUnit) && receiveUnit.ContainsKey(doc.ReceivingUnit)
-                ? receiveUnit[doc.ReceivingUnit]
-                : "",
+                    ? receiveUnit[doc.ReceivingUnit]
+                    : string.Empty,
                 ExportingUnit = doc.ExportingUnit,
                 ExportingUnitName = !string.IsNullOrEmpty(doc.ExportingUnit) && exportUnit.ContainsKey(doc.ExportingUnit)
-                ? exportUnit[doc.ExportingUnit]
-                : "",
+                    ? exportUnit[doc.ExportingUnit]
+                    : string.Empty,
                 DocumentType = doc.DocumentType,
-                DocType = DocumentEntryHelper.GetDocTypeName((int)doc.DocumentType),
+                DocType = DocumentEntryHelper.GetDocTypeName(doc.DocumentType.Value),
                 PostingDate = doc.PostingDate,
                 DocumentDate = doc.DocumentDate,
-                DocumentDateFormat = doc.DocumentDate?.ToString("dd/MM/yyyy") ?? "",
+                DocumentDateFormat = doc.DocumentDate?.ToString("dd/MM/yyyy") ?? string.Empty,
                 Status = doc.Status,
-                StatusName = DocumentEntryHelper.GetStatusName((int)doc.Status)
-            }).ToList() ;
-
-            return result;
+                StatusName = DocumentEntryHelper.GetStatusName(doc.Status.Value)
+            }).ToList();
         }
 
         public async Task<List<DocumentEntryHeaderDTO>> GetDocEntryHeader_other(int type)
         {
-            var documents = await _context.DocumentEntryHeader.Where(a => a.DocumentType == type && a.CheckQR ==0 && a.Status == 0).OrderByDescending(e=>e.PostingDate).ToListAsync();
-            var departments = await _context.Department.ToListAsync(); // lấy toàn bộ
+            var documents = await (from e in _context.DocumentEntryHeader
+                                   where e.DocumentType == (int?)type && e.CheckQR == (int?)0 && e.Status == (int?)0
+                                   orderby e.PostingDate descending
+                                   select e).ToListAsync();
+
+            var departments = await _context.Department.ToListAsync();
             var vendors = await _context.Vendor.ToListAsync();
 
-            var receiveUnitCode = documents.Select(e => e.ReceivingUnit).Where(code => !string.IsNullOrEmpty(code)).Distinct().ToList();
-            Dictionary<string,string> receiveUnit = new Dictionary<string, string>();
+            var receiveUnitCode = documents
+                .Select(e => e.ReceivingUnit)
+                .Where(code => !string.IsNullOrEmpty(code))
+                .Distinct()
+                .ToList();
+
             var exportUnitCode = documents.Select(e => e.ExportingUnit).Distinct().ToList();
-            Dictionary<string,string> exportUnit = new Dictionary<string,string>(); 
-            if (type == 11 || type == 12 || type == 13 || type == 6 || type ==16)
+
+            Dictionary<string, string> receiveUnit;
+            Dictionary<string, string> exportUnit;
+
+            if (type == 11 || type == 12 || type == 13 || type == 6 || type == 16)
             {
-                receiveUnit = vendors.Where(e => receiveUnitCode.Contains(e.No)).ToDictionary(e => e.No, e => e.Name);
-                exportUnit = departments.Where(e=>exportUnitCode.Contains(e.Code)).ToDictionary(e=>e.Code, e => e.Name);
-            }    
+                receiveUnit = vendors
+                    .Where(e => receiveUnitCode.Contains(e.No))
+                    .ToDictionary(e => e.No, e => e.Name);
+
+                exportUnit = departments
+                    .Where(d => exportUnitCode.Contains(d.Code))
+                    .ToDictionary(d => d.Code, d => d.Name);
+            }
             else
             {
-                 receiveUnit = departments
-                .Where(d => receiveUnitCode.Contains(d.Code))
-                .ToDictionary(d => d.Code, d => d.Name);
-                 exportUnit = vendors.Where(e => exportUnitCode.Contains(e.No)).ToDictionary(e => e.No, e => e.Name);
+                receiveUnit = departments
+                    .Where(d => receiveUnitCode.Contains(d.Code))
+                    .ToDictionary(d => d.Code, d => d.Name);
+
+                exportUnit = vendors
+                    .Where(e => exportUnitCode.Contains(e.No))
+                    .ToDictionary(e => e.No, e => e.Name);
             }
-                
-            
-            var result = documents.Select(doc => new DocumentEntryHeaderDTO
+
+            return documents.Select(doc => new DocumentEntryHeaderDTO
             {
                 No = doc.No,
                 ReceivingUnit = doc.ReceivingUnit,
                 ReceivedUnitName = !string.IsNullOrEmpty(doc.ReceivingUnit) && receiveUnit.ContainsKey(doc.ReceivingUnit)
-                ? receiveUnit[doc.ReceivingUnit]
-                : "",
+                    ? receiveUnit[doc.ReceivingUnit]
+                    : string.Empty,
                 ExportingUnit = doc.ExportingUnit,
                 ExportingUnitName = !string.IsNullOrEmpty(doc.ExportingUnit) && exportUnit.ContainsKey(doc.ExportingUnit)
-                ? exportUnit[doc.ExportingUnit]
-                : "",
+                    ? exportUnit[doc.ExportingUnit]
+                    : string.Empty,
                 DocumentType = doc.DocumentType,
-                DocType = DocumentEntryHelper.GetDocTypeName((int)doc.DocumentType),
+                DocType = DocumentEntryHelper.GetDocTypeName(doc.DocumentType.Value),
                 PostingDate = doc.PostingDate,
                 DocumentDate = doc.DocumentDate,
-                DocumentDateFormat = doc.DocumentDate?.ToString("dd/MM/yyyy") ?? "",
+                DocumentDateFormat = doc.DocumentDate?.ToString("dd/MM/yyyy") ?? string.Empty,
                 Status = doc.Status,
-                StatusName = DocumentEntryHelper.GetStatusName((int)doc.Status)
+                StatusName = DocumentEntryHelper.GetStatusName(doc.Status.Value)
             }).ToList();
-
-            return result;
         }
+
     }
 }

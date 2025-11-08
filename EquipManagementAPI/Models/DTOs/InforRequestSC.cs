@@ -1,32 +1,43 @@
-﻿using Microsoft.AspNetCore.Http;
-
-namespace EquipManagementAPI.Models.DTOs
+﻿namespace EquipManagementAPI.Models.DTOs
 {
     public class InforRequestSC
     {
         public string QRCode { get; set; }
         public string EquipmentName { get; set; }
-        public string Serial {  get; set; }
+        public string Serial { get; set; }
         public string Brand { get; set; }
         public string Model { get; set; }
         public string? WorkShift { get; set; }
-        public int Status {  get; set; }
+        public string? WorkShiftCode { get; set; }
+        public string? WorkCenter { get; set; }
+        public int Status { get; set; }
+
         public string? StatusName
-        { get
+        {
+            get
             {
-                return Status switch
+                switch (Status)
                 {
-                    0 => "Đã tạo yêu cầu",
-                    1 => "Bắt đầu sửa",
-                    2 => "Chờ BQLC xác nhận",
-                    3 =>  "Sửa lại",
-                    4 => "BQLC xác nhận",
-                    5 => "Hoàn thành",
-                    6 => "Không sửa được",
-                    7 => "Đang sửa chữa"
-                };
+                    case 0:
+                        return "Đã tạo yêu cầu";
+                    case 1:
+                        return "Bắt đầu sửa";
+                    case 2:
+                        return "Chờ BQLC xác nhận";
+                    case 3:
+                        return "Sửa lại";
+                    case 4:
+                        return "BQLC xác nhận";
+                    case 5:
+                        return "Hoàn thành";
+                    case 6:
+                        return "Không sửa được";
+                    case 7:
+                        return "Đang sửa chữa";
+                    default:
+                        return null;
+                }
             }
-            
         }
     }
 }

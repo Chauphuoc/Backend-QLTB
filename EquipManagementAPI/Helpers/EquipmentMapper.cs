@@ -22,7 +22,8 @@ namespace EquipManagementAPI.Helpers
             return docType switch
             {
                 0 => "Lưu kho",
-                1 => "Sử dụng"
+                1 => "Sử dụng",
+                _ => "Không xác định"
             };
         }
     }

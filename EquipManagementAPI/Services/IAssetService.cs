@@ -5,9 +5,9 @@ namespace EquipManagementAPI.Services
 {
     public interface IAssetService
     {
-        Task<List<string>> ProcessQRCodeBatchAsync(QRCodeEntryBatchDTO request);
+        Task<List<string>> ProcessQRCodeBatchAsync(RequestEntryType0 request);
 
-        Task<List<string>> ProcessScanQRCode_Type1(QRCodeEntryBatchDTO request);
+        Task<List<string>> ProcessScanQRCode_Type1(RequestEntryType1 request);
 
         Task<bool> UpdateSerialNumber(string equipCode, string newSerial, string user);
 
@@ -48,7 +48,9 @@ namespace EquipManagementAPI.Services
         Task<List<XacnhanHT_DTO>> Process_GetListYeuCauXN();
 
         Task<List<RepairListDTO>> Process_GetListYeuCau(string userId);
-
+        Task<List<ItemRequireList>> GetOverView_Require();
+        Task<List<ItemRequireList>> GetOverView_Repairing();
+        Task<List<ItemRequireList>> GetOverView_Completed();
         Task<List<string>> Process_XacNhanHoanThanh(XacnhanHT_DTO request);
 
         Task<List<string>> Process_KhongHTSC(XacnhanHT_DTO request);
@@ -62,5 +64,6 @@ namespace EquipManagementAPI.Services
         Task<string> GetUserRoleAsync(string userId);
 
         Task<InforRequestSC> GetInforEquipHTSC_Serial(string serial);
+        Task<HoanthanhSC_Detail_DTO> Get_DetailContentRepair(string qrcode);
     }
 }

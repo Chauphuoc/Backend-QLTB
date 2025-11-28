@@ -15,7 +15,7 @@ namespace EquipManagementAPI.Services
             _context = context;
         }
 
-        public async Task<List<DocumentEntryHeaderDTO>> GetDocEntryHeader(int type)
+        public async Task<List<DocumentEntryHeaderDTO>> GetDocEntryHeader(int type) //Nội bộ
         {
             var documents = await (from e in _context.DocumentEntryHeader
                                    where e.DocumentType == (int?)type && e.CheckQR == (int?)0 && e.Status == (int?)0
@@ -61,7 +61,7 @@ namespace EquipManagementAPI.Services
             }).ToList();
         }
 
-        public async Task<List<DocumentEntryHeaderDTO>> GetDocEntryHeader_other(int type)
+        public async Task<List<DocumentEntryHeaderDTO>> GetDocEntryHeader_other(int type) //Đơn vị ngoài
         {
             var documents = await (from e in _context.DocumentEntryHeader
                                    where e.DocumentType == (int?)type && e.CheckQR == (int?)0 && e.Status == (int?)0

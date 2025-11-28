@@ -29,7 +29,8 @@ public class DocHeader_API : ControllerBase
         {
             return BadRequest("Trạng thái không hợp lệ");
         }
-        IEnumerable<DocumentEntryHeaderDTO> dtoList = ((type != 6 && type != 11 && type != 12 && type != 13 && type != 16) ?
+        //Nhập mượn ĐV ngoài , Xuất trả mượn ĐV ngoài, Xuất trả thuê,Xuất trả Nhầ CC
+        IEnumerable<DocumentEntryHeaderDTO> dtoList = ((type != 6 && type != 11 && type != 12 && type != 13 &&  type != 16) ?
             (await _service.GetDocEntryHeader(type)) : (await _service.GetDocEntryHeader_other(type)));
         return Ok(dtoList);
     }

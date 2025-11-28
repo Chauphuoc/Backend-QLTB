@@ -22,6 +22,8 @@
                 13 => "Xuất trả nhà CC",
                 14 => "Xuất cho ĐV ngoài mượn",
                 16 => "Xuất thanh lý",
+                17 => "Xuất trả mượn NB",
+                18 => "Nhập trả mượn NB",
                 _ => "Không xác định"
             };
         }

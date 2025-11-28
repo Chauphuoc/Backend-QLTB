@@ -89,7 +89,7 @@ public class Equip_ManageAPI : ControllerBase
     [ProducesResponseType(400)]
     [ProducesResponseType(500)]
     [MaintenanceAuthorize("Admin", "Manager", "Khocty", "Baotri1", "Baotri2")]
-    public async Task<ActionResult> ScanQRCode0([FromBody] QRCodeEntryBatchDTO data)
+    public async Task<ActionResult> ScanQRCode0([FromBody] RequestEntryType0 data)
     {
         try
         {
@@ -107,7 +107,7 @@ public class Equip_ManageAPI : ControllerBase
     [ProducesResponseType(400)]
     [ProducesResponseType(500)]
     [MaintenanceAuthorize( "Admin", "Manager", "Khocty", "Baotri1", "Baotri2" )]
-    public async Task<ActionResult> ScanQRCode_XuatDVQL([FromBody] QRCodeEntryBatchDTO data)
+    public async Task<ActionResult> ScanQRCode_XuatDVQL([FromBody] RequestEntryType1 data)
     {
         try
         {
@@ -721,13 +721,37 @@ public class Equip_ManageAPI : ControllerBase
         return Ok(equip.QRCode);
     }
 
-    //[HttpGet("requested")]
-    //[ProducesResponseType(200)]
-    //[ProducesResponseType(400)]
-    //[MaintenanceAuthorize(new string[] { "Admin", "Manager", "Baotri1", "Baotri2" })]
-    //public async Task<ActionResult<object>> ValidateInputType([FromQuery] string userId)
-    //{
-        
-    //    return Ok(equip.QRCode);
-    //}
+    [HttpGet("tonghopyeucau")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [MaintenanceAuthorize(new string[] { "Admin", "Manager", "Baotri1", "Baotri2" })]
+    public async Task<ActionResult<IEnumerable<ItemRequireList>>> Overview_listRequireSC()
+    {
+        return Ok(await _service.GetOverView_Require());
+    }
+    [HttpGet("repairing")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [MaintenanceAuthorize(new string[] { "Admin", "Manager", "Baotri1", "Baotri2" })]
+    public async Task<ActionResult<IEnumerable<ItemRequireList>>> Overview_listRepairing()
+    {
+        return Ok(await _service.GetOverView_Repairing());
+    }
+    [HttpGet("completed")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [MaintenanceAuthorize(new string[] { "Admin", "Manager", "Baotri1", "Baotri2" })]
+    public async Task<ActionResult<IEnumerable<ItemRequireList>>> Overview_listCompleted()
+    {
+        return Ok(await _service.GetOverView_Completed());
+    }
+    [HttpGet("hoanthanhsc/details")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [MaintenanceAuthorize(new string[] { "Admin", "Manager", "Baotri1", "Baotri2" })]
+    public async Task<ActionResult<HoanthanhSC_Detail_DTO>> Detail_Content_Repair([FromQuery] string qrcode)
+    {
+        return Ok(await _service.Get_DetailContentRepair(qrcode));
+    }
+
 }

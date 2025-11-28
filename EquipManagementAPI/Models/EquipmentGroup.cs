@@ -10,7 +10,7 @@ public class EquipmentGroup
 
     public string? Code { get; set; }
 
-    public string Name { get; set; }
+    public string? Name { get; set; }
 
     [Column("Asset Type Code")]
     public string AssetTypeCode { get; set; }

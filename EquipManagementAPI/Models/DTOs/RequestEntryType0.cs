@@ -1,6 +1,6 @@
 ﻿namespace EquipManagementAPI.Models.DTOs
 {
-    public class QRCodeEntryBatchDTO
+    public class RequestEntryType0
     {
         public List<string> QRCodes { get; set; }
         public string DocumentNo { get; set; }

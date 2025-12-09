@@ -26,8 +26,8 @@
       "dotnetRunMessages": true,
       "launchBrowser": true,
       "launchUrl": "swagger",
-      //"applicationUrl": "http://0.0.0.0:7117",
-      "applicationUrl": "https://appmobile.thianco.com.vn:5068",
+      "applicationUrl": "http://0.0.0.0:7117",
+      //"applicationUrl": "https://appmobile.thianco.com.vn:5068",
 
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Production"

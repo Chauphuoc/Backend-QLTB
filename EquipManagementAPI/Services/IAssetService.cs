@@ -45,9 +45,10 @@ namespace EquipManagementAPI.Services
 
         Task<List<string>> Process_KhongSuaDuoc_Dieumay(RequestDieuMay request);
 
-        Task<List<XacnhanHT_DTO>> Process_GetListYeuCauXN();
+        //Task<List<XacnhanHT_DTO>> Process_GetListYeuCau_User();
 
-        Task<List<RepairListDTO>> Process_GetListYeuCau(string userId);
+        Task<List<RepairListDTO>> Process_GetListYeuCau_User(string userId);
+        Task<List<RepairListDTO>> Process_GetListYeuCau();
         Task<List<ItemRequireList>> GetOverView_Require();
         Task<List<ItemRequireList>> GetOverView_Repairing();
         Task<List<ItemRequireList>> GetOverView_Completed();
@@ -65,5 +66,9 @@ namespace EquipManagementAPI.Services
 
         Task<InforRequestSC> GetInforEquipHTSC_Serial(string serial);
         Task<HoanthanhSC_Detail_DTO> Get_DetailContentRepair(string qrcode);
+        Task<List<string>> ProcessScan_KiemKe(EquipScanKK_DTO request);
+        Task<List<ItemRequireList>> GetOverView_Require_ByUser(string userId);
+        Task<List<ItemRequireList>> GetOverView_Repairing_ByUser(string userId);
+        Task<List<ItemRequireList>> GetOverView_Completed_ByUser(string userId);
     }
 }

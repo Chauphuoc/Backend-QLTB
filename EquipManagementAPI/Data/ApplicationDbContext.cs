@@ -59,6 +59,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<UserRole> userRoles { get; set; }
 
     public DbSet<Roles> roles { get; set; }
+    public DbSet<InventoryScan> inventoryScans { get; set; }
 
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
         : base(options)

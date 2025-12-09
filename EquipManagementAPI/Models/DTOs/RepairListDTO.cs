@@ -8,5 +8,7 @@
         public string Reporter {  get; set; }
         public string? Location { get; set; }
         public string Model { get; set; }
+        public DateTime PostingDate { get; set; }
+
     }
 }

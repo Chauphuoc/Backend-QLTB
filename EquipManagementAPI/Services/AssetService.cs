@@ -438,6 +438,72 @@ namespace EquipManagementAPI.Services
             await _context.SaveChangesAsync();
             return results;
         }
+        public async Task<List<string>> ProcessScan_KiemKe(EquipScanKK_DTO request)
+        {
+            var results = new List<string>();
+            var distinctQRCodes = request.QRCodes.Distinct().ToList();
+
+            var unit = await _context.Department.FirstOrDefaultAsync(d => d.Code == request.unit);
+            if (unit == null)
+            {
+                results.Add("Lỗi: Không tìm thấy đơn vị quản lý " + request.unit);
+                return results;
+            }
+
+            foreach (var qr in distinctQRCodes)
+            {
+                try
+                {
+                    // Kiểm tra thiết bị thuộc đơn vị
+                    var equipInUnit = await _context.Equipment
+                        .FirstOrDefaultAsync(e => e.QRCode == qr && e.UsingUnit == request.unit);
+
+                    if (equipInUnit == null)
+                    {
+                        results.Add($"Lỗi: Thiết bị {qr} không thuộc đơn vị {unit.Name}");
+                        continue;
+                    }
+
+                    // Kiểm tra QR đã được quét trong năm chưa
+                    bool isExists = await _context.inventoryScans
+                        .AnyAsync(x => x.QRCode == qr && x.Year == DateTime.Now.Year.ToString());
+
+                    if (isExists)
+                    {
+                        results.Add($"Lỗi: QRCode {qr} đã được kiểm kê trong năm {DateTime.Now.Year}");
+                        continue;   // BỎ QUA nhưng KHÔNG dừng vòng lặp
+                    }
+                    
+                    var equipKK = new InventoryScan
+                    {
+                        QRCode = qr,
+                        PostingDate = DateTime.Now,
+                        Status = Convert.ToInt32(request.status),
+                        WorkCenter = request.unit,
+                        ManageUnit = equipInUnit.ManageUnit,
+                        EquipmentGroupCode = equipInUnit.EquipmentGroupCode,
+                        Model = equipInUnit.Model,
+                        ScanLocation = request.location,
+                        UserID = request.userId,
+                        Year = DateTime.Now.Year.ToString(),
+                        TinhTrang = equipInUnit.ManageUnit == request.unit ? 0 : 1
+                      
+                    };
+
+                    _context.inventoryScans.Add(equipKK);
+
+                    results.Add($"Quét QRCode {qr} thành công");
+                }
+                catch (Exception ex)
+                {
+                    results.Add($"Lỗi xử lý {qr}: {ex.Message}");
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            return results;
+        }
+
 
         public async Task<bool> UpdateSerialNumber(string equipmentCode, string newSerialNumber, string userId)
         {
@@ -1780,102 +1846,119 @@ namespace EquipManagementAPI.Services
         }
 
 
-        public async Task<List<XacnhanHT_DTO>> Process_GetListYeuCauXN()
-        {
-            var result = new List<XacnhanHT_DTO>();
+        //public async Task<List<XacnhanHT_DTO>> Process_GetListYeuCauXN()
+        //{
+        //    var result = new List<XacnhanHT_DTO>();
 
+        //    try
+        //    {
+        //        // Lấy toàn bộ các yêu cầu có Status = 0 cùng các thông tin liên quan trong 1 truy vấn duy nhất
+        //        var query = from yc in _context.yeucauBQLCXacNhan
+        //                    where yc.Status == 0
+        //                    join emp in _context.employee on yc.Requester equals emp.No into empJoin
+        //                    from emp in empJoin.DefaultIfEmpty()
+        //                    join eg in _context.equipmentGroup on yc.EquipmentGroupCode equals eg.Code into egJoin
+        //                    from eg in egJoin.DefaultIfEmpty()
+        //                    join loc in _context.locationXSDs on yc.LocationCode equals loc.Code into locJoin
+        //                    from loc in locJoin.DefaultIfEmpty()
+        //                    join rt in _context.repairType on yc.RepairType equals rt.Code into rtJoin
+        //                    from rt in rtJoin.DefaultIfEmpty()
+        //                    select new XacnhanHT_DTO
+        //                    {
+        //                        RowID = yc.RowID,
+        //                        QRCode = yc.QRCode,
+        //                        EquipmentGroup = yc.EquipmentGroupCode,
+        //                        Requester = emp != null ? emp.Name : string.Empty,
+        //                        LocationCode = yc.LocationCode,
+        //                        Location = loc != null ? loc.Name : string.Empty,
+        //                        EquipmentName = eg != null ? eg.Name : string.Empty,
+        //                        RepairType = yc.RepairType,
+        //                        RepairTypeName = rt != null ? rt.Name : string.Empty,
+        //                        Description = yc.Description
+        //                    };
+
+        //        result = await query.ToListAsync();
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        // Nếu có lỗi, ghi nhận thông báo thay vì crash
+        //        result.Add(new XacnhanHT_DTO
+        //        {
+        //            Description = "Lỗi khi lấy danh sách xác nhận hoàn thành: " + ex.Message
+        //        });
+        //    }
+
+        //    return result;
+        //}
+
+        public async Task<List<RepairListDTO>> Process_GetListYeuCau_User(string userId)
+        {
             try
             {
-                // Lấy toàn bộ các yêu cầu có Status = 0 cùng các thông tin liên quan trong 1 truy vấn duy nhất
-                var query = from yc in _context.yeucauBQLCXacNhan
-                            where yc.Status == 0
-                            join emp in _context.employee on yc.Requester equals emp.No into empJoin
-                            from emp in empJoin.DefaultIfEmpty()
-                            join eg in _context.equipmentGroup on yc.EquipmentGroupCode equals eg.Code into egJoin
-                            from eg in egJoin.DefaultIfEmpty()
-                            join loc in _context.locationXSDs on yc.LocationCode equals loc.Code into locJoin
-                            from loc in locJoin.DefaultIfEmpty()
-                            join rt in _context.repairType on yc.RepairType equals rt.Code into rtJoin
-                            from rt in rtJoin.DefaultIfEmpty()
-                            select new XacnhanHT_DTO
-                            {
-                                RowID = yc.RowID,
-                                QRCode = yc.QRCode,
-                                EquipmentGroup = yc.EquipmentGroupCode,
-                                Requester = emp != null ? emp.Name : string.Empty,
-                                LocationCode = yc.LocationCode,
-                                Location = loc != null ? loc.Name : string.Empty,
-                                EquipmentName = eg != null ? eg.Name : string.Empty,
-                                RepairType = yc.RepairType,
-                                RepairTypeName = rt != null ? rt.Name : string.Empty,
-                                Description = yc.Description
-                            };
+                var workcenter = await _context.employee.Where(e => e.No == userId).Select(e => e.WorkCenterCode).FirstOrDefaultAsync();
+                // Nếu user không có WorkCenterCode thì trả rỗng
+                if (string.IsNullOrEmpty(workcenter))
+                    return new List<RepairListDTO>();
+                var query = from r in _context.repairRequests
+                                join emp in _context.employee on r.Reporter equals emp.No into empJoin
+                                from emp in empJoin.DefaultIfEmpty()
+                                join eg in _context.equipmentGroup on r.EquipmentGroupCode equals eg.Code into egJoin
+                                from eg in egJoin.DefaultIfEmpty()
+                                join loc in _context.locationXSDs on r.LocationCode equals loc.Code into locJoin
+                                from loc in locJoin.DefaultIfEmpty()
+                                where r.Status == 0 && r.WorkCenterCode == workcenter
+                                orderby r.PostingDate descending
+                                select new RepairListDTO
+                                {
+                                    No = r.No,
+                                    QRCode = r.QRCode,
+                                    EquipmentName = eg != null ? eg.Name : string.Empty,
+                                    Location = loc != null ? loc.Name : string.Empty,
+                                    Model = r.Model,
+                                    Reporter = emp != null ? emp.Name : string.Empty,
+                                    PostingDate = r.PostingDate
+                                };
+                
+               
 
-                result = await query.ToListAsync();
+                return await query.ToListAsync();
             }
             catch (Exception ex)
             {
-                // Nếu có lỗi, ghi nhận thông báo thay vì crash
-                result.Add(new XacnhanHT_DTO
-                {
-                    Description = "Lỗi khi lấy danh sách xác nhận hoàn thành: " + ex.Message
-                });
+                // Trả danh sách trống và có thể log lỗi
+                return new List<RepairListDTO>
+        {
+            new RepairListDTO
+            {
+                EquipmentName = "Lỗi khi lấy danh sách yêu cầu: " + ex.Message
             }
-
-            return result;
+        };
+            }
         }
-
-        public async Task<List<RepairListDTO>> Process_GetListYeuCau(string userId)
+        public async Task<List<RepairListDTO>> Process_GetListYeuCau()
         {
             try
             {
-                var user = _context.employee.FirstOrDefault(e=>e.No == userId);
-                var checkRole = _context.userRoles.FirstOrDefault(e=>e.UserID==user.LoginId);
-                IQueryable<RepairListDTO> query;
-                if (checkRole?.RoleID==1)
-                {
-                    query = from r in _context.repairRequests
-                                join emp in _context.employee on r.Reporter equals emp.No into empJoin
-                                from emp in empJoin.DefaultIfEmpty()
-                                join eg in _context.equipmentGroup on r.EquipmentGroupCode equals eg.Code into egJoin
-                                from eg in egJoin.DefaultIfEmpty()
-                                join loc in _context.locationXSDs on r.LocationCode equals loc.Code into locJoin
-                                from loc in locJoin.DefaultIfEmpty()
-                                where r.Status == 0 
-                                orderby r.PostingDate descending
-                                select new RepairListDTO
-                                {
-                                    No = r.No,
-                                    QRCode = r.QRCode,
-                                    EquipmentName = eg != null ? eg.Name : string.Empty,
-                                    Location = loc != null ? loc.Name : string.Empty,
-                                    Model = r.Model,
-                                    Reporter = emp != null ? emp.Name : string.Empty
-                                };
-                }    
-                else
-                {
-                    query = from r in _context.repairRequests
-                                join emp in _context.employee on r.Reporter equals emp.No into empJoin
-                                from emp in empJoin.DefaultIfEmpty()
-                                join eg in _context.equipmentGroup on r.EquipmentGroupCode equals eg.Code into egJoin
-                                from eg in egJoin.DefaultIfEmpty()
-                                join loc in _context.locationXSDs on r.LocationCode equals loc.Code into locJoin
-                                from loc in locJoin.DefaultIfEmpty()
-                                where r.Status == 0 && r.WorkCenterCode == user.WorkCenterCode
-                                orderby r.PostingDate descending
-                                select new RepairListDTO
-                                {
-                                    No = r.No,
-                                    QRCode = r.QRCode,
-                                    EquipmentName = eg != null ? eg.Name : string.Empty,
-                                    Location = loc != null ? loc.Name : string.Empty,
-                                    Model = r.Model,
-                                    Reporter = emp != null ? emp.Name : string.Empty
-                                };
-                }
+                  var  query = from r in _context.repairRequests
+                            join emp in _context.employee on r.Reporter equals emp.No into empJoin
+                            from emp in empJoin.DefaultIfEmpty()
+                            join eg in _context.equipmentGroup on r.EquipmentGroupCode equals eg.Code into egJoin
+                            from eg in egJoin.DefaultIfEmpty()
+                            join loc in _context.locationXSDs on r.LocationCode equals loc.Code into locJoin
+                            from loc in locJoin.DefaultIfEmpty()
+                            where r.Status == 0
+                            orderby r.PostingDate descending
+                            select new RepairListDTO
+                            {
+                                No = r.No,
+                                QRCode = r.QRCode,
+                                EquipmentName = eg != null ? eg.Name : string.Empty,
+                                Location = loc != null ? loc.Name : string.Empty,
+                                Model = r.Model,
+                                Reporter = emp != null ? emp.Name : string.Empty,
+                                PostingDate = r.PostingDate
+                            };
                
-
                 return await query.ToListAsync();
             }
             catch (Exception ex)
@@ -1895,7 +1978,7 @@ namespace EquipManagementAPI.Services
         //{
         //    try
         //    {
-               
+
         //          var  query = from r in _context.repairRequests
         //                    join emp in _context.employee on r.Reporter equals emp.No into empJoin
         //                    from emp in empJoin.DefaultIfEmpty()
@@ -2262,7 +2345,7 @@ namespace EquipManagementAPI.Services
                             {
                                 QRCode = r.QRCode,
                                 Reporter = emp != null ? emp.Name : string.Empty,
-                                CreatedDate = r.PostingDate.ToString("dd/MM/yyyy"),
+                                CreatedDate = r.PostingDate.ToString("dd/MM/yyyy HH:mm"),
                                 WorkCenter = unit.Name,
                                 WorkShift = loc.Name
                             };
@@ -2274,6 +2357,41 @@ namespace EquipManagementAPI.Services
                 // Trả danh sách trống và có thể log lỗi
                 return new List<ItemRequireList>();
        
+            }
+        }
+        public async Task<List<ItemRequireList>> GetOverView_Require_ByUser(string userId)
+        {
+            try
+            {
+                var workcenter = await _context.employee.Where(e=>e.No==userId).Select(e => e.WorkCenterCode).FirstOrDefaultAsync();
+                // Nếu user không có WorkCenterCode thì trả rỗng
+                if (string.IsNullOrEmpty(workcenter))
+                    return new List<ItemRequireList>();
+                var query = from r in _context.repairRequests
+                            join emp in _context.employee on r.Reporter equals emp.No into empJoin
+                            from emp in empJoin.DefaultIfEmpty()
+                            join loc in _context.locationXSDs on r.LocationCode equals loc.Code into locJoin
+                            from loc in locJoin.DefaultIfEmpty()
+                            join unit in _context.Department on r.WorkCenterCode equals unit.Code into unitJoin
+                            from unit in unitJoin.DefaultIfEmpty()
+                            where r.Status == 0 && r.WorkCenterCode == workcenter
+                            orderby r.PostingDate descending
+                            select new ItemRequireList
+                            {
+                                QRCode = r.QRCode,
+                                Reporter = emp != null ? emp.Name : string.Empty,
+                                CreatedDate = r.PostingDate.ToString("dd/MM/yyyy HH:mm"),
+                                WorkCenter = unit.Name,
+                                WorkShift = loc.Name
+                            };
+
+                return await query.ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                // Trả danh sách trống và có thể log lỗi
+                return new List<ItemRequireList>();
+
             }
         }
         public async Task<List<ItemRequireList>> GetOverView_Repairing()
@@ -2288,6 +2406,41 @@ namespace EquipManagementAPI.Services
                             join unit in _context.Department on r.WorkCenterCode equals unit.Code into unitJoin
                             from unit in unitJoin.DefaultIfEmpty()
                             where r.Status == 1
+                            orderby r.PostingDate descending
+                            select new ItemRequireList
+                            {
+                                QRCode = r.QRCode,
+                                Reporter = emp != null ? emp.Name : string.Empty,
+                                CreatedDate = r.PostingDate.ToString("dd/MM/yyyy"),
+                                WorkCenter = unit.Name,
+                                WorkShift = loc.Name
+                            };
+
+                return await query.ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                // Trả danh sách trống và có thể log lỗi
+                return new List<ItemRequireList>();
+
+            }
+        }
+        public async Task<List<ItemRequireList>> GetOverView_Repairing_ByUser(string userId)
+        {
+            try
+            {
+                var workcenter = await _context.employee.Where(e => e.No == userId).Select(e => e.WorkCenterCode).FirstOrDefaultAsync();
+                // Nếu user không có WorkCenterCode thì trả rỗng
+                if (string.IsNullOrEmpty(workcenter))
+                    return new List<ItemRequireList>();
+                var query = from r in _context.repairRequests
+                            join emp in _context.employee on r.Reporter equals emp.No into empJoin
+                            from emp in empJoin.DefaultIfEmpty()
+                            join loc in _context.locationXSDs on r.LocationCode equals loc.Code into locJoin
+                            from loc in locJoin.DefaultIfEmpty()
+                            join unit in _context.Department on r.WorkCenterCode equals unit.Code into unitJoin
+                            from unit in unitJoin.DefaultIfEmpty()
+                            where r.Status == 1 && r.WorkCenterCode == workcenter
                             orderby r.PostingDate descending
                             select new ItemRequireList
                             {
@@ -2338,7 +2491,41 @@ namespace EquipManagementAPI.Services
 
             }
         }
+        public async Task<List<ItemRequireList>> GetOverView_Completed_ByUser(string userId)
+        {
+            try
+            {
+                var workcenter = await _context.employee.Where(e => e.No == userId).Select(e => e.WorkCenterCode).FirstOrDefaultAsync();
+                // Nếu user không có WorkCenterCode thì trả rỗng
+                if (string.IsNullOrEmpty(workcenter))
+                    return new List<ItemRequireList>();
+                var query = from r in _context.repairRequests
+                            join emp in _context.employee on r.Reporter equals emp.No into empJoin
+                            from emp in empJoin.DefaultIfEmpty()
+                            join loc in _context.locationXSDs on r.LocationCode equals loc.Code into locJoin
+                            from loc in locJoin.DefaultIfEmpty()
+                            join unit in _context.Department on r.WorkCenterCode equals unit.Code into unitJoin
+                            from unit in unitJoin.DefaultIfEmpty()
+                            where r.Status == 2 && r.WorkCenterCode == workcenter
+                            orderby r.PostingDate descending
+                            select new ItemRequireList
+                            {
+                                QRCode = r.QRCode,
+                                Reporter = emp != null ? emp.Name : string.Empty,
+                                CreatedDate = r.PostingDate.ToString("dd/MM/yyyy"),
+                                WorkCenter = unit.Name,
+                                WorkShift = loc.Name
+                            };
 
+                return await query.ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                // Trả danh sách trống và có thể log lỗi
+                return new List<ItemRequireList>();
+
+            }
+        }
         public async Task<HoanthanhSC_Detail_DTO> Get_DetailContentRepair(string qrCode)
         {
             
@@ -2347,6 +2534,12 @@ namespace EquipManagementAPI.Services
                                from e in equipJoin.DefaultIfEmpty()
                                join eg in _context.equipmentGroup on e.EquipmentGroupCode equals eg.Code into equipGroupJoin
                                from eg in equipGroupJoin.DefaultIfEmpty()
+                               join lc in _context.locationXSDs on r.LocationCode equals lc.Code into locationJoin
+                               from lc in locationJoin.DefaultIfEmpty()
+                               join wc in _context.Department on r.WorkCenterCode equals wc.Code into workcenterJoin
+                               from wc in workcenterJoin.DefaultIfEmpty()
+                               join em in _context.employee on r.Reporter equals em.No into employeeJoin
+                               from em in employeeJoin.DefaultIfEmpty()
                                join content in _context.repairContent on r.No equals content.DocNo into repairContentJoin
                                from content in repairContentJoin.DefaultIfEmpty()
                                join t in _context.repairType on content.RepairType equals t.Code into typeJoin
@@ -2359,15 +2552,17 @@ namespace EquipManagementAPI.Services
                                    Brand = e.Brand,
                                    Model = e.Model,
                                    FromDate = r.FromDate.HasValue
-                                       ? r.FromDate.Value.ToString("dd/MM/yyyy") : string.Empty,
+                                       ? r.FromDate.Value.ToString("dd/MM/yyyy HH:mm") : string.Empty,
                                    ToDate = r.ToDate.HasValue
-                                       ? r.ToDate.Value.ToString("dd/MM/yyyy") : string.Empty,
-                                   WorkShift = r.LocationCode,
-                                   WorkCenter = r.WorkCenterCode,
+                                       ? r.ToDate.Value.ToString("dd/MM/yyyy HH:mm") : string.Empty,
+                                   WorkShift = lc.Name,
+                                   WorkCenter = wc.Name,
                                    TimeFinish = r.Duration != null? (r.Duration >= 60? $"{Math.Floor((decimal)r.Duration / 60)} giờ {(decimal)r.Duration % 60} phút"
                                     : $"{r.Duration} phút"): string.Empty,
                                    RepairType = t.Name,
-                                   Content = content.Detail
+                                   Content = content.Detail,
+                                   Reporter = em.Name,
+                                   PostingDate =  r.PostingDate.ToString("dd/MM/yyyy HH:mm") 
                                }).FirstOrDefaultAsync();
 
             return query ?? new HoanthanhSC_Detail_DTO();

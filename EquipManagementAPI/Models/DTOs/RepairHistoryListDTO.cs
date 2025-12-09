@@ -6,7 +6,7 @@ namespace EquipManagementAPI.Models.DTOs
     {
         public string id { get; set; }
         public string equipCode { get; set; }
-        public string postingDate { get; set; }
+        public string? postingDate { get; set; }
         public string? title { get; set; }
         public string assignee { get; set; }
         public string? content { get; set; }

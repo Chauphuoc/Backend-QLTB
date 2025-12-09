@@ -157,6 +157,27 @@ public class Equip_ManageAPI : ControllerBase
         }
     }
 
+    [HttpPut("scan-kk")]
+    [ProducesResponseType(204)]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    //[MaintenanceAuthorize("Admin", "Manager", "KeToan")]
+    public async Task<ActionResult> Scan_KiemKe([FromBody] EquipScanKK_DTO equip)
+    {
+        try
+        {
+            if (equip == null)
+            {
+                return BadRequest();
+            }
+            return Ok(await _service.ProcessScan_KiemKe(equip));
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
     [HttpGet("unit", Name = "GetUnit")]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
@@ -270,6 +291,34 @@ public class Equip_ManageAPI : ControllerBase
                                     Label = e.Name
                                 }).ToListAsync();
             }
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest("Có lỗi xảy ra khi lấy danh sách vị trí: " + ex.Message);
+        }
+    }
+    [HttpGet("locationKK")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [MaintenanceAuthorize("Admin", "Manager", "KeToan")]
+    public async Task<ActionResult<LocationXsdDTO>> GetLocationKK([FromQuery] string unit)
+    {
+        try
+        {
+            if (await _context.Department.FirstOrDefaultAsync((Department e) => e.Code == unit) == null)
+            {
+                return BadRequest();
+            }
+            new List<LocationXsdDTO>();
+            List<LocationXsdDTO> result = await (from e in _context.locationXSDs
+                                where e.DepartmentCode == unit 
+                                select new LocationXsdDTO
+                                {
+                                    Value = e.Code,
+                                    Label = e.Name
+                                }).ToListAsync();
+
             return Ok(result);
         }
         catch (Exception ex)
@@ -579,22 +628,32 @@ public class Equip_ManageAPI : ControllerBase
         return Ok(await _service.Process_KhongSuaDuoc_Dieumay(request));
     }
 
-    [HttpGet("yeucauxacnhan")]
-    [ProducesResponseType(200)]
-    [ProducesResponseType(400)]
-    [MaintenanceAuthorize(new string[] { "Admin", "Manager", "Baotri1", "Baotri2" })]
-    public async Task<ActionResult<IEnumerable<XacnhanHT_DTO>>> GetList_YeuCauXacNhan()
-    {
-        return Ok(await _service.Process_GetListYeuCauXN());
-    }
+    //[HttpGet("yeucauxacnhan")]
+    //[ProducesResponseType(200)]
+    //[ProducesResponseType(400)]
+    //[MaintenanceAuthorize(new string[] { "Admin", "Manager", "Baotri1", "Baotri2" })]
+    //public async Task<ActionResult<IEnumerable<XacnhanHT_DTO>>> GetList_YeuCauXacNhan()
+    //{
+    //    return Ok(await _service.Process_GetListYeuCauXN());
+    //}
 
     [HttpGet("listyeucau")]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
     [MaintenanceAuthorize(new string[] { "Admin", "Manager", "Baotri1", "Baotri2" })]
-    public async Task<ActionResult<IEnumerable<RepairListDTO>>> GetList_YeuCau([FromQuery] string userId)
+    public async Task<ActionResult<IEnumerable<RepairListDTO>>> GetList_YeuCau([FromQuery] string? userId)
     {
-        return Ok(await _service.Process_GetListYeuCau(userId));
+        if (string.IsNullOrEmpty(userId))
+        {
+            // Admin hoặc Manager gọi API không có userId → lấy toàn bộ
+            var allData = await _service.Process_GetListYeuCau();
+            return Ok(allData);
+        }
+
+        // Các user thường gọi API có userId → lọc theo user
+        var filteredData = await _service.Process_GetListYeuCau_User(userId);
+        return Ok(filteredData);
+
     }
 
     [HttpPost("xacnhanhtsc")]
@@ -682,9 +741,10 @@ public class Equip_ManageAPI : ControllerBase
     [ProducesResponseType(400)]
     [ProducesResponseType(404)]
     [MaintenanceAuthorize(new string[] { "Admin", "Manager", "Baotri1", "Baotri2" })]
-    public async Task<ActionResult<int>> GetCountYeucau()
+    public async Task<ActionResult<int>> GetCountYeucau([FromQuery] string userId)
     {
-        return Ok(await _context.repairRequests.Where((RepairRequestList e) => e.Status == 0).CountAsync());
+        var workcenter = await _context.employee.Where(e => e.No == userId).Select(e => e.WorkCenterCode).FirstOrDefaultAsync();
+        return Ok(await _context.repairRequests.Where((RepairRequestList e) => e.Status == 0 && e.WorkCenterCode==workcenter).CountAsync());
     }
 
     [HttpGet("xacnhan/count")]
@@ -710,7 +770,7 @@ public class Equip_ManageAPI : ControllerBase
                 message = "Giá trị input không được để trống."
             });
         }
-        Equipment equip = await _context.Equipment.FirstOrDefaultAsync((Equipment e) => e.QRCode.ToLower() == input.ToLower() || e.SerialNumber.ToLower() == input.ToLower());
+        Equipment equip = await _context.Equipment.FirstOrDefaultAsync((Equipment e) => e.EquipmentCode.ToLower() == input.ToLower() || e.SerialNumber.ToLower() == input.ToLower());
         if (equip == null)
         {
             return BadRequest(new
@@ -725,25 +785,53 @@ public class Equip_ManageAPI : ControllerBase
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
     [MaintenanceAuthorize(new string[] { "Admin", "Manager", "Baotri1", "Baotri2" })]
-    public async Task<ActionResult<IEnumerable<ItemRequireList>>> Overview_listRequireSC()
+    public async Task<ActionResult<IEnumerable<ItemRequireList>>> Overview_listRequireSC([FromQuery] string? userId)
     {
-        return Ok(await _service.GetOverView_Require());
+        if (string.IsNullOrEmpty(userId))
+        {
+            // Admin hoặc Manager gọi API không có userId → lấy toàn bộ
+            var allData = await _service.GetOverView_Require();
+            return Ok(allData);
+        }
+
+        // Các user thường gọi API có userId → lọc theo user
+        var filteredData = await _service.GetOverView_Require_ByUser(userId);
+        return Ok(filteredData);
     }
+
     [HttpGet("repairing")]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
     [MaintenanceAuthorize(new string[] { "Admin", "Manager", "Baotri1", "Baotri2" })]
-    public async Task<ActionResult<IEnumerable<ItemRequireList>>> Overview_listRepairing()
+    public async Task<ActionResult<IEnumerable<ItemRequireList>>> Overview_listRepairing([FromQuery] string? userId)
     {
-        return Ok(await _service.GetOverView_Repairing());
+        if (string.IsNullOrEmpty(userId))
+        {
+            // Admin hoặc Manager gọi API không có userId → lấy toàn bộ
+            var allData = await  _service.GetOverView_Repairing();
+            return Ok(allData);
+        }
+
+        // Các user thường gọi API có userId → lọc theo user
+        var filteredData = await _service.GetOverView_Repairing_ByUser(userId);
+        return Ok(filteredData);
     }
     [HttpGet("completed")]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
     [MaintenanceAuthorize(new string[] { "Admin", "Manager", "Baotri1", "Baotri2" })]
-    public async Task<ActionResult<IEnumerable<ItemRequireList>>> Overview_listCompleted()
+    public async Task<ActionResult<IEnumerable<ItemRequireList>>> Overview_listCompleted([FromQuery] string? userId)
     {
-        return Ok(await _service.GetOverView_Completed());
+        if (string.IsNullOrEmpty(userId))
+        {
+            // Admin hoặc Manager gọi API không có userId → lấy toàn bộ
+            var allData = await _service.GetOverView_Completed();
+            return Ok(allData);
+        }
+
+        // Các user thường gọi API có userId → lọc theo user
+        var filteredData = await _service.GetOverView_Completed_ByUser(userId);
+        return Ok(filteredData);
     }
     [HttpGet("hoanthanhsc/details")]
     [ProducesResponseType(200)]
@@ -753,5 +841,12 @@ public class Equip_ManageAPI : ControllerBase
     {
         return Ok(await _service.Get_DetailContentRepair(qrcode));
     }
-
+    //[HttpGet("hoanthanhsc/description")]
+    //[ProducesResponseType(200)]
+    //[ProducesResponseType(400)]
+    //[MaintenanceAuthorize(new string[] { "Admin", "Manager", "Baotri1", "Baotri2" })]
+    //public async Task<ActionResult<HoanthanhSC_Detail_DTO>> GetListDescription([FromQuery] string qrcode)
+    //{
+    //    return Ok(await _service.Get_listDescription(qrcode));
+    //}
 }

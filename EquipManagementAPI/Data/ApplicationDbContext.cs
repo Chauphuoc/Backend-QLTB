@@ -60,7 +60,8 @@ public class ApplicationDbContext : DbContext
 
     public DbSet<Roles> roles { get; set; }
     public DbSet<InventoryScan> inventoryScans { get; set; }
-
+    public DbSet<Repair_Description> repair_Descriptions { get; set; }
+    public DbSet<WorkCenter> workCenters { get; set; }
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
         : base(options)
     {

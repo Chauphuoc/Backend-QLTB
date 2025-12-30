@@ -30,7 +30,7 @@ public class Equip_ManageAPI : ControllerBase
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
     [ProducesResponseType(404)]
-    [MaintenanceAuthorize("Admin", "Manager", "Khocty", "Baotri1", "Baotri2", "Chuyen1", "Chuyen2", "View")]
+    [MaintenanceAuthorize("Admin", "Manager", "Khocty", "Baotri1", "Baotri2", "Chuyen1", "Chuyen2")]
     public async Task<ActionResult<EquipmentDTO>> GetEquipment(string code)
     {
         if (code == "")
@@ -49,7 +49,7 @@ public class Equip_ManageAPI : ControllerBase
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
     [ProducesResponseType(404)]
-    [MaintenanceAuthorize( "Admin", "Manager", "Khocty", "Baotri1", "Baotri2", "Chuyen1", "Chuyen2", "View" )]
+    [MaintenanceAuthorize( "Admin", "Manager", "Khocty", "Baotri1", "Baotri2", "Chuyen1", "Chuyen2" )]
     public async Task<ActionResult<EquipmentDTO>> GetEquipmentBySerial(string serial)
     {
         if (serial == "")
@@ -68,7 +68,7 @@ public class Equip_ManageAPI : ControllerBase
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
     [ProducesResponseType(404)]
-    [MaintenanceAuthorize("Admin", "Manager", "Khocty", "Baotri1", "Baotri2", "Chuyen1", "Chuyen2", "View")]
+    [MaintenanceAuthorize("Admin", "Manager", "Khocty", "Baotri1", "Baotri2", "Chuyen1", "Chuyen2")]
     public async Task<ActionResult<EquipmentDTO>> GetEquipmentByEquipCode(string equipCode)
     {
         if (equipCode == "")
@@ -161,7 +161,7 @@ public class Equip_ManageAPI : ControllerBase
     [ProducesResponseType(204)]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
-    //[MaintenanceAuthorize("Admin", "Manager", "KeToan")]
+    [MaintenanceAuthorize("Admin", "Manager", "KeToan","Baotri1","Baotri2")]
     public async Task<ActionResult> Scan_KiemKe([FromBody] EquipScanKK_DTO equip)
     {
         try
@@ -171,6 +171,27 @@ public class Equip_ManageAPI : ControllerBase
                 return BadRequest();
             }
             return Ok(await _service.ProcessScan_KiemKe(equip));
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpPut("scan-kk-external")]
+    [ProducesResponseType(204)]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [MaintenanceAuthorize("Admin", "Manager", "KeToan", "Baotri1", "Baotri2")]
+    public async Task<ActionResult> Scan_KiemKe_External([FromBody] EquipScanKK_External_DTO equip)
+    {
+        try
+        {
+            if (equip == null)
+            {
+                return BadRequest();
+            }
+            return Ok(await _service.ProcessScan_KiemKe_External(equip));
         }
         catch (Exception ex)
         {
@@ -222,13 +243,65 @@ public class Equip_ManageAPI : ControllerBase
             List<DepartmentDTO> departmentDto = await _context.Department.Select((Department e) => new DepartmentDTO
             {
                 Value = e.Code,
-                Label = e.Name
+                Label = e.Name,
+                Type = e.Type
             }).ToListAsync();
             if (departmentDto == null)
             {
                 return NotFound("Không tìm thấy đơn vị cho user này.");
             }
             return Ok(departmentDto);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest("Có lỗi xảy ra khi lấy danh sách đơn vị: " + ex.Message);
+        }
+    }
+
+    [HttpGet("kiemke/units")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [MaintenanceAuthorize("Admin","Baotri1", "Baotri2", "Ketoan")]
+    public async Task<ActionResult<IEnumerable<DepartmentDTO>>> GetUnits_KiemKe()
+    {
+        try
+        {
+            List<DepartmentDTO> departmentDto = await _context.Department.Select((Department e) => new DepartmentDTO
+            {
+                Value = e.Code,
+                Label = e.Name,
+                Type = e.Type
+            }).ToListAsync();
+            if (departmentDto == null)
+            {
+                return NotFound("Không tìm thấy đơn vị cho user này.");
+            }
+            return Ok(departmentDto);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest("Có lỗi xảy ra khi lấy danh sách đơn vị: " + ex.Message);
+        }
+    }
+
+    [HttpGet("borrowing-units")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [MaintenanceAuthorize("Admin", "Baotri1", "Baotri2", "Ketoan")]
+    public async Task<ActionResult<IEnumerable<WorkCenter_DTO>>> GetUnits_ChoMuon()
+    {
+        try
+        {
+            List<WorkCenter_DTO> workcenterDto = await _context.workCenters.Where(e=>e.Type==0).Select((WorkCenter e) => new WorkCenter_DTO
+            {
+                Value = e.No,
+                Label = e.Name,
+            }).ToListAsync();
+            if (workcenterDto == null)
+            {
+                return NotFound("Không tìm thấy đơn vị cho user này.");
+            }
+            return Ok(workcenterDto);
         }
         catch (Exception ex)
         {
@@ -301,7 +374,7 @@ public class Equip_ManageAPI : ControllerBase
     [HttpGet("locationKK")]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
-    [MaintenanceAuthorize("Admin", "Manager", "KeToan")]
+    [MaintenanceAuthorize("Admin", "Manager", "KeToan","Baotri1","Baotri2")]
     public async Task<ActionResult<LocationXsdDTO>> GetLocationKK([FromQuery] string unit)
     {
         try
@@ -442,7 +515,7 @@ public class Equip_ManageAPI : ControllerBase
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
     [ProducesResponseType(404)]
-    [MaintenanceAuthorize(new string[] { "Admin", "Manager", "Khocty", "Baotri1", "Baotri2", "Chuyen1", "Chuyen2", "View" })]
+    [MaintenanceAuthorize(new string[] { "Admin", "Manager", "Khocty", "Baotri1", "Baotri2", "Chuyen1", "Chuyen2" })]
     public async Task<ActionResult<MaintenanceHistoryDTO>> GetMaintenanceHistory(string code)
     {
         IEnumerable<MaintenanceHistoryDTO> dtoList = await _service.Process_GetMaintenanceHistory(code);
@@ -730,7 +803,7 @@ public class Equip_ManageAPI : ControllerBase
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
     [ProducesResponseType(404)]
-    [MaintenanceAuthorize(new string[] { "Admin", "Manager", "Khocty", "Baotri1", "Baotri2", "Chuyen1", "Chuyen2", "View" })]
+    [MaintenanceAuthorize(new string[] { "Admin", "Manager", "Khocty", "Baotri1", "Baotri2", "Chuyen1", "Chuyen2" })]
     public async Task<ActionResult<IEnumerable<RepairHistoryListDTO>>> GetList_RepairHistory(string code)
     {
         return Ok(await _service.Process_GetListRepairHistory(code));
@@ -841,12 +914,40 @@ public class Equip_ManageAPI : ControllerBase
     {
         return Ok(await _service.Get_DetailContentRepair(qrcode));
     }
-    //[HttpGet("hoanthanhsc/description")]
-    //[ProducesResponseType(200)]
-    //[ProducesResponseType(400)]
-    //[MaintenanceAuthorize(new string[] { "Admin", "Manager", "Baotri1", "Baotri2" })]
-    //public async Task<ActionResult<HoanthanhSC_Detail_DTO>> GetListDescription([FromQuery] string qrcode)
-    //{
-    //    return Ok(await _service.Get_listDescription(qrcode));
-    //}
+    [HttpGet("hoanthanhsc/repair-details/{type}")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [MaintenanceAuthorize(new string[] { "Admin", "Manager", "Baotri1", "Baotri2" })]
+    public async Task<ActionResult<List<Repair_Description_DTO>>> GetListDescription(string type)
+    {
+        return Ok(await _service.Get_listDescription(type));
+    }
+    [HttpGet("device-details")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [MaintenanceAuthorize(new string[] { "Admin", "Manager", "Baotri1", "Baotri2" })]
+    public async Task<ActionResult> Get_DeviceDetails_KiemKe([FromQuery] string qrCode)
+    {
+        if (string.IsNullOrWhiteSpace(qrCode))
+            return BadRequest("QRCode không hợp lệ");
+        var query = from eq in _context.Equipment
+                    join m in _context.Department on eq.ManageUnit equals m.Code into manageJoin
+                    from m in manageJoin.DefaultIfEmpty()
+                    join u in _context.Department on eq.UsingUnit equals u.Code into usingJoin
+                    from u in usingJoin.DefaultIfEmpty()
+                    where eq.QRCode == qrCode
+                    select new EquipmentDTO
+                    {
+                        QRCode = eq.QRCode,
+                        ManageUnit = m.Name,
+                        UsingUnit = u.Name,
+                    };
+
+        var device = await query.FirstOrDefaultAsync();
+
+        if (device == null)
+            return NotFound("Không tìm thấy thiết bị");
+
+        return Ok(device);
+    }
 }

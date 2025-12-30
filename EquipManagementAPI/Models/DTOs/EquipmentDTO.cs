@@ -10,8 +10,9 @@ public class EquipmentDTO
     public string EquipmentName { get; set; }
 
     public string? ManageUnit { get; set; }
-
-    public string? ManageUnitName { get; set; }
+    public string? UsingUnit { get; set; }
+    public string? LineNo { get; set; }
+        public string? ManageUnitName { get; set; }
 
     public string? EquipmentGroupCode { get; set; }
 

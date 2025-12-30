@@ -47,4 +47,5 @@ public class RepairRequestList
 
     public decimal Duration { get; set; }
     public string WorkCenterCode { get; set; }
+    public string? Machenic {  get; set; }
 }

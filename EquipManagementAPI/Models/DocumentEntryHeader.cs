@@ -46,4 +46,6 @@ public class DocumentEntryHeader
 
     [Column("Due Date")]
     public DateTime? DueDate { get; set; }
+    [Column("Source No_")]
+    public string? SourceNo { get; set; }
 }

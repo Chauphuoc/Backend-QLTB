@@ -57,4 +57,5 @@ public class Department
 
     [Column("WorkCenter No_")]
     public string? WorkCenter { get; set; }
+    public int? Type { get; set; }
 }

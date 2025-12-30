@@ -15,5 +15,6 @@
         public string Content { get; set; }
         public string Reporter { get; set; }
         public string PostingDate { get; set; }
+        public string Mechanic { get; set; }    
     }
 }

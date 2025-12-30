@@ -70,5 +70,7 @@ namespace EquipManagementAPI.Services
         Task<List<ItemRequireList>> GetOverView_Require_ByUser(string userId);
         Task<List<ItemRequireList>> GetOverView_Repairing_ByUser(string userId);
         Task<List<ItemRequireList>> GetOverView_Completed_ByUser(string userId);
+        Task<List<Repair_Description_DTO>> Get_listDescription(string type);
+        Task<List<string>> ProcessScan_KiemKe_External(EquipScanKK_External_DTO request);
     }
 }

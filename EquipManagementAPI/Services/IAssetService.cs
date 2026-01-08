@@ -5,7 +5,7 @@ namespace EquipManagementAPI.Services
 {
     public interface IAssetService
     {
-        Task<List<string>> ProcessQRCodeBatchAsync(RequestEntryType0 request);
+        Task<List<string>> ProcessQRCodeBatchAsync(RequestEntryType1 request);
 
         Task<List<string>> ProcessScanQRCode_Type1(RequestEntryType1 request);
 

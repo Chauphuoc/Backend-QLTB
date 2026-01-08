@@ -89,7 +89,7 @@ public class Equip_ManageAPI : ControllerBase
     [ProducesResponseType(400)]
     [ProducesResponseType(500)]
     [MaintenanceAuthorize("Admin", "Manager", "Khocty", "Baotri1", "Baotri2")]
-    public async Task<ActionResult> ScanQRCode0([FromBody] RequestEntryType0 data)
+    public async Task<ActionResult> ScanQRCode0([FromBody] RequestEntryType1 data)
     {
         try
         {

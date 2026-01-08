@@ -21,10 +21,11 @@ namespace EquipManagementAPI.Services
         }
         
 
-        public async Task<List<string>> ProcessQRCodeBatchAsync(RequestEntryType0 request)
+        public async Task<List<string>> ProcessQRCodeBatchAsync(RequestEntryType1 request)
         {
             var results = new List<string>();
             var distinctQRCodes = request.QRCodes.Distinct().ToList();
+            var docEntryHeader = await _context.DocumentEntryHeader.FirstOrDefaultAsync(e => e.No == request.DocumentNo);
             foreach (var qrCode in distinctQRCodes)
             {
                 try
@@ -47,6 +48,12 @@ namespace EquipManagementAPI.Services
                         results.Add($"Lỗi! QRCode:{qrCode} đã được quét");
                         continue;
                     }
+                    var checkStatus = await _context.DocumentEntry.FirstOrDefaultAsync(e => e.QRCode == qrCode && e.DocumentNo == request.DocumentNo);
+                    if (checkStatus.Status !=2 && docEntryHeader.Status !=2)
+                    {
+                        results.Add($"Lỗi! QRCode:{qrCode} chưa được kho công ty xác nhận!");
+                        continue;
+                    }
                     var dto = new QRCodeEntryQLTB
                     {
                         QRCode = qrCode,
@@ -55,8 +62,8 @@ namespace EquipManagementAPI.Services
                         EquipmentGroupCode = asset.EquipmentGroupCode,
                         DocumentNo = request.DocumentNo,
                         DocumentType = request.DocumentType,
-                        ManageUnit = request.Unit,
-                        UsingUnit = request.Unit,
+                        ManageUnit = request.ManageUnit,
+                        UsingUnit = request.UsingUnit,
                         PostingDate = DateTime.Now,
                         UserId = request.UserId,
                         Respon = asset.Responsibility,
@@ -64,11 +71,13 @@ namespace EquipManagementAPI.Services
 
                     };
                     _context.QRCodeEntry.Add(dto);
+                    
                     //update
-                    asset.ManageUnit = request.Unit;
-                    asset.UsingUnit = request.Unit;
+                    asset.ManageUnit = request.ManageUnit;
+                    asset.UsingUnit = request.UsingUnit;
                     asset.DocumentNo = request.DocumentNo;
                     asset.DocumentType = request.DocumentType;
+
                     switch (request.DocumentType)
                     {
                         case 5: //Nhập thuê đơn vị ngoài
@@ -76,8 +85,6 @@ namespace EquipManagementAPI.Services
                             asset.StatusGroup = 0;
                             asset.LocationCode = "";
                             break;
-
-
                         case 12: //xuất trả thuê
                             //asset.Status = 4;
                             //asset.StatusGroup = -1;
@@ -90,12 +97,12 @@ namespace EquipManagementAPI.Services
                             asset.StatusGroup = -1;
                             asset.LocationCode = "";
                             break;
-                        case 15: //Xuất bảo hành
+                        case 15: //Xuất đơn vị ngoài sửa chữa
                             asset.Status = 3; //Bảo hành
                             asset.StatusGroup = -1;
                             asset.LocationCode = "";
                             break;
-                        case 3: //Nhập sau khi sửa chữa BD từ DV ngoài
+                        case 3: //Nhập sau khi sửa chữa từ DV ngoài
                             asset.Status = 14;
                             asset.StatusGroup = 0;
                             asset.LocationCode = "";
@@ -127,8 +134,7 @@ namespace EquipManagementAPI.Services
                             asset.LocationCode = "";
                             break;
                     }
-
-
+                    await _context.SaveChangesAsync();
                 }
                 catch (Exception ex)
                 {
@@ -136,23 +142,22 @@ namespace EquipManagementAPI.Services
                 }
                 
             }
-            await _context.SaveChangesAsync();
+           
             var docEntry = await _context.DocumentEntry.CountAsync(e => e.DocumentNo == request.DocumentNo);
-            //var qrEntry = distinctQRCodes.Count();
             var qrEntry = await _context.QRCodeEntry
             .Where(e => e.DocumentNo == request.DocumentNo)
             .CountAsync();
             if (docEntry == qrEntry)
             {
-                var docEntryHeader = await _context.DocumentEntryHeader.FirstOrDefaultAsync(e => e.No == request.DocumentNo);
                 if (docEntryHeader != null)
                 {
+                    
                     docEntryHeader.CheckQR = 1;
+                    docEntryHeader.Status = 2;
                     docEntryHeader.PostingDate = DateTime.Now;
                 }
-                await _context.SaveChangesAsync();
             }
-            
+            await _context.SaveChangesAsync();
             results.Add($"✅ Quét thành công");
             return results;
         }
@@ -246,7 +251,7 @@ namespace EquipManagementAPI.Services
 
 
                     _context.QRCodeEntry.Add(dto);
-
+                    await _context.SaveChangesAsync();
                     var equipLineNo = await _context.equipmentLineNo
                         .FirstOrDefaultAsync(e => e.DepartmentCode == request.ManageUnit);
 
@@ -1426,7 +1431,7 @@ namespace EquipManagementAPI.Services
                 // Cập nhật trạng thái yêu cầu
                 repairList.FromDate = DateTime.Now;
                 repairList.Status = 1;
-
+                repairList.Mechanic = request.UserID;
                 // Cập nhật trạng thái thiết bị
                 var equip = await _context.Equipment.FirstOrDefaultAsync(e => e.QRCode == repairList.QRCode);
                 if (equip == null)
@@ -1844,7 +1849,7 @@ namespace EquipManagementAPI.Services
                 // Cập nhật yêu cầu sửa chữa
                 repairList.Status = 2; // Hoàn tất
                 repairList.ToDate = DateTime.Now;
-                repairList.Machenic = request.UserID;
+                repairList.Mechanic = request.UserID;
                 if (repairList.FromDate.HasValue)
                 {
                     var durationMinutes = (decimal)Math.Round(
@@ -2592,8 +2597,10 @@ namespace EquipManagementAPI.Services
             try
             {
                 var query = from r in _context.repairRequests
-                            join emp in _context.employee on r.Reporter equals emp.No into empJoin
-                            from emp in empJoin.DefaultIfEmpty()
+                            join emp1 in _context.employee on r.Reporter equals emp1.No into emp1Join
+                            from emp1 in emp1Join.DefaultIfEmpty()
+                            join emp2 in _context.employee on r.Mechanic equals emp2.No into emp2Join
+                            from emp2 in emp2Join.DefaultIfEmpty()
                             join loc in _context.locationXSDs on r.LocationCode equals loc.Code into locJoin
                             from loc in locJoin.DefaultIfEmpty()
                             join unit in _context.Department on r.WorkCenterCode equals unit.Code into unitJoin
@@ -2603,10 +2610,11 @@ namespace EquipManagementAPI.Services
                             select new ItemRequireList
                             {
                                 QRCode = r.QRCode,
-                                Reporter = emp != null ? emp.Name : string.Empty,
-                                CreatedDate = r.PostingDate.ToString("dd/MM/yyyy"),
+                                Reporter = emp1 != null ? emp1.Name : string.Empty,
+                                CreatedDate = r.PostingDate.ToString("dd/MM/yyyy HH:mm"),
                                 WorkCenter = unit.Name,
-                                WorkShift = loc.Name
+                                WorkShift = loc.Name,
+                                Mechanic = emp2 != null ? emp2.Name : string.Empty
                             };
 
                 return await query.ToListAsync();
@@ -2629,6 +2637,8 @@ namespace EquipManagementAPI.Services
                 var query = from r in _context.repairRequests
                             join emp in _context.employee on r.Reporter equals emp.No into empJoin
                             from emp in empJoin.DefaultIfEmpty()
+                            join emp2 in _context.employee on r.Mechanic     equals emp2.No into emp2Join
+                            from emp2 in emp2Join.DefaultIfEmpty()
                             join loc in _context.locationXSDs on r.LocationCode equals loc.Code into locJoin
                             from loc in locJoin.DefaultIfEmpty()
                             join unit in _context.Department on r.WorkCenterCode equals unit.Code into unitJoin
@@ -2639,9 +2649,10 @@ namespace EquipManagementAPI.Services
                             {
                                 QRCode = r.QRCode,
                                 Reporter = emp != null ? emp.Name : string.Empty,
-                                CreatedDate = r.PostingDate.ToString("dd/MM/yyyy"),
+                                CreatedDate = r.PostingDate.ToString("dd/MM/yyyy HH:mm"),
                                 WorkCenter = unit.Name,
-                                WorkShift = loc.Name
+                                WorkShift = loc.Name,
+                                Mechanic = emp2.Name
                             };
 
                 return await query.ToListAsync();
@@ -2660,6 +2671,8 @@ namespace EquipManagementAPI.Services
                 var query = from r in _context.repairRequests
                             join emp in _context.employee on r.Reporter equals emp.No into empJoin
                             from emp in empJoin.DefaultIfEmpty()
+                            join emp2 in _context.employee on r.Mechanic equals emp2.No into emp2Join
+                            from emp2 in emp2Join.DefaultIfEmpty()
                             join loc in _context.locationXSDs on r.LocationCode equals loc.Code into locJoin
                             from loc in locJoin.DefaultIfEmpty()
                             join unit in _context.Department on r.WorkCenterCode equals unit.Code into unitJoin
@@ -2670,9 +2683,10 @@ namespace EquipManagementAPI.Services
                             {
                                 QRCode = r.QRCode,
                                 Reporter = emp != null ? emp.Name : string.Empty,
-                                CreatedDate = r.PostingDate.ToString("dd/MM/yyyy"),
+                                CreatedDate = r.PostingDate.ToString("dd/MM/yyyy HH:mm"),
                                 WorkCenter = unit.Name,
-                                WorkShift = loc.Name
+                                WorkShift = loc.Name,
+                                Mechanic = emp2.Name
                             };
 
                 return await query.ToListAsync();
@@ -2695,6 +2709,8 @@ namespace EquipManagementAPI.Services
                 var query = from r in _context.repairRequests
                             join emp in _context.employee on r.Reporter equals emp.No into empJoin
                             from emp in empJoin.DefaultIfEmpty()
+                            join emp2 in _context.employee on r.Mechanic equals emp2.No into emp2Join
+                            from emp2 in emp2Join.DefaultIfEmpty()
                             join loc in _context.locationXSDs on r.LocationCode equals loc.Code into locJoin
                             from loc in locJoin.DefaultIfEmpty()
                             join unit in _context.Department on r.WorkCenterCode equals unit.Code into unitJoin
@@ -2705,9 +2721,10 @@ namespace EquipManagementAPI.Services
                             {
                                 QRCode = r.QRCode,
                                 Reporter = emp != null ? emp.Name : string.Empty,
-                                CreatedDate = r.PostingDate.ToString("dd/MM/yyyy"),
+                                CreatedDate = r.PostingDate.ToString("dd/MM/yyyy HH:mm"),
                                 WorkCenter = unit.Name,
-                                WorkShift = loc.Name
+                                WorkShift = loc.Name,
+                                Mechanic  = emp2.Name
                             };
 
                 return await query.ToListAsync();
@@ -2733,7 +2750,7 @@ namespace EquipManagementAPI.Services
                                from wc in workcenterJoin.DefaultIfEmpty()
                                join em in _context.employee on r.Reporter equals em.No into employeeJoin
                                from em in employeeJoin.DefaultIfEmpty()
-                               join ma in _context.employee on r.Machenic equals ma.No into machanicJoin
+                               join ma in _context.employee on r.Mechanic equals ma.No into machanicJoin
                                from ma in machanicJoin.DefaultIfEmpty()
                                join content in _context.repairContent on r.No equals content.DocNo into repairContentJoin
                                from content in repairContentJoin.DefaultIfEmpty()

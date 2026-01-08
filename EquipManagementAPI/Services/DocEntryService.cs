@@ -1,5 +1,6 @@
 ﻿using EquipManagementAPI.Data;
 using EquipManagementAPI.Helpers;
+using EquipManagementAPI.Models;
 using EquipManagementAPI.Models.DTOs;
 using Microsoft.EntityFrameworkCore;
 using System.Reflection.Metadata;
@@ -17,11 +18,12 @@ namespace EquipManagementAPI.Services
 
         public async Task<List<DocumentEntryHeaderDTO>> GetDocEntryHeader(int type) //Nội bộ
         {
-            var documents = await (from e in _context.DocumentEntryHeader
-                                   where e.DocumentType == (int?)type && e.CheckQR == (int?)0 && e.Status == (int?)0
-                                   orderby e.PostingDate descending
-                                   select e).ToListAsync();
-
+           
+               var  documents = await (from e in _context.DocumentEntryHeader
+                                       where e.DocumentType == (int?)type && e.CheckQR == (int?)0 && e.Status != (int?)-1 
+                                       orderby e.PostingDate descending
+                                       select e).ToListAsync();
+            
             var exportUnitCode = documents.Select(e => e.ExportingUnit).Distinct().ToList();
 
             var receiveUnitCode = documents

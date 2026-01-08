@@ -7,5 +7,6 @@
         public string CreatedDate { get; set; }
         public string WorkCenter { get; set; }
         public string WorkShift { get; set; }
+        public string Mechanic {  get; set; }
     }
 }

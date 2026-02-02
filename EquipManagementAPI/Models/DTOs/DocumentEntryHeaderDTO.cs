@@ -14,5 +14,6 @@
         public string DocumentDateFormat { get; set; }
         public int? Status { get; set; }
         public string? StatusName { get; set; }
+        public List<string> QRCodes { get; set; }
     }
 }

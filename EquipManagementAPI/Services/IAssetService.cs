@@ -5,6 +5,7 @@ namespace EquipManagementAPI.Services
 {
     public interface IAssetService
     {
+        Task<List<string>> ProcessQRCode_NhapCty(RequestEntryType0 request);
         Task<List<string>> ProcessQRCodeBatchAsync(RequestEntryType1 request);
 
         Task<List<string>> ProcessScanQRCode_Type1(RequestEntryType1 request);
@@ -65,12 +66,16 @@ namespace EquipManagementAPI.Services
         Task<string> GetUserRoleAsync(string userId);
 
         Task<InforRequestSC> GetInforEquipHTSC_Serial(string serial);
-        Task<HoanthanhSC_Detail_DTO> Get_DetailContentRepair(string qrcode);
+        Task<HoanthanhSC_Detail_DTO> Get_DetailContentRepair(string qrcode,string no);
         Task<List<string>> ProcessScan_KiemKe(EquipScanKK_DTO request);
         Task<List<ItemRequireList>> GetOverView_Require_ByUser(string userId);
         Task<List<ItemRequireList>> GetOverView_Repairing_ByUser(string userId);
         Task<List<ItemRequireList>> GetOverView_Completed_ByUser(string userId);
         Task<List<Repair_Description_DTO>> Get_listDescription(string type);
         Task<List<string>> ProcessScan_KiemKe_External(EquipScanKK_External_DTO request);
+        Task<List<EquipmentDTO>> TongHopMayMoc();
+        Task<List<EquipmentDTO>> TongHopMayMoc_ByUser(string userID);
+        //Task<List<EquipmentDTO>> TongHopMayMoc_ByStatus(String status);
+        //Task<List<EquipmentDTO>> TongHopMayMoc_ByUser_ByStatus(String status, String userId);
     }
 }

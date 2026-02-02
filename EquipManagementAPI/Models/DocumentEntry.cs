@@ -20,11 +20,11 @@ public class DocumentEntry
     [Column("Equipment Group Code")]
     public string EquipmentGroupCode { get; set; }
 
-    [Column("Manage Unit")]
-    public string? ManageUnit { get; set; }
+    //[Column("Manage Unit")]
+    //public string? ManageUnit { get; set; }
 
-    [Column("Using Unit")]
-    public string? UsingUnit { get; set; }
+    //[Column("Using Unit")]
+    //public string? UsingUnit { get; set; }
 
     [Column("Unit Of Measure")]
     public string? UnitOfMeasure { get; set; }

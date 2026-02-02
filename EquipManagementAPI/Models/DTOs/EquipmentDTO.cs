@@ -48,29 +48,29 @@ public class EquipmentDTO
                 case 2:
                     return "Đang sửa chữa";
                 case 3:
-                    return "Hoàn trả kho Cty";
-                case 4:
-                    return "Trả thuê";
-                case 5:
-                    return "Trả nhà CC";
-                case 6:
-                    return "Bảo hành hãng";
-                case 7:
-                    return "Nhập bảo hành";
-                case 8:
-                    return "Thanh lý";
-                case 9:
-                    return "Nhập mượn";
-                case 10:
-                    return "Nhập thuê";
-                case 11:
-                    return "Trả mượn";
-                case 12:
                     return "Cho mượn";
-                case 13:
-                    return "Nhập ĐV ngoài trả mượn";
-                case 14:
+                case 4:
+                    return "Mượn";
+                case 5:
+                    return "Thuê";
+                case 6:
                     return "Lưu kho";
+                //case 7:
+                //    return "Nhập bảo hành";
+                //case 8:
+                //    return "Thanh lý";
+                //case 9:
+                //    return "Nhập mượn";
+                //case 10:
+                //    return "Nhập thuê";
+                //case 11:
+                //    return "Trả mượn";
+                //case 12:
+                //    return "Cho mượn";
+                //case 13:
+                //    return "Nhập ĐV ngoài trả mượn";
+                //case 14:
+                //    return "Lưu kho";
                 default:
                     {
                         return "Không tìm thấy";
@@ -78,6 +78,7 @@ public class EquipmentDTO
             }
         }
     }
+    public string? StatusGroup2 { get; set; }
 
     public int? StatusGroup { get; set; }
 
@@ -85,7 +86,8 @@ public class EquipmentDTO
     {
         -1 => "Không sử dụng",
         0 => "Lưu kho",
-        1 => "Sử dụng",
+        1 => "Đang sử dụng",
+        2 => "Không sở hữu",
         _ => "Không xác định",
     };
 

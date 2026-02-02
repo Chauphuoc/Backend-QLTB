@@ -44,4 +44,7 @@ public class MaintenanceHistory
     public int Id { get; set; }
 
     public int? Status { get; set; }
+    public DateTime DueDate { get; set; }
+    public int isLate { get; set; } 
+    public  int LateDays { get; set; }
 }

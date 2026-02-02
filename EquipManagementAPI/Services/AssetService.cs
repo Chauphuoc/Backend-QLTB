@@ -19,13 +19,124 @@ namespace EquipManagementAPI.Services
         {
             _context = context;
         }
-        
+        //Kho tổng nhập xuất
+        public async Task<List<string>> ProcessQRCode_NhapCty(RequestEntryType0 request)
+        {
+            var results = new List<string>();
+            var distinctQRCodes = request.QRCodes.Distinct().ToList();
+            var docEntryHeader = await _context.DocumentEntryHeader.FirstOrDefaultAsync(e => e.No == request.DocumentNo);
+            var docEntryLine = await _context.DocumentEntry.Where(e=>e.DocumentNo==request.DocumentNo).ToListAsync();
+            foreach (var qrCode in distinctQRCodes)
+            {
+                try
+                {
+                    var asset = await _context.Equipment.FirstOrDefaultAsync(e => e.QRCode == qrCode);
+                    if (asset == null)
+                    {
+                        results.Add($"Lỗi! QRCode:{qrCode} chưa được tạo!");
+                        continue;
+                    }
+                    var docEntries = await _context.DocumentEntry.Where(e => e.DocumentNo != null && e.DocumentNo == request.DocumentNo).ToListAsync();
+                    if (!docEntries.Any(e => e.QRCode != null && e.QRCode == qrCode))
+                    {
+                        results.Add($"Lỗi! QRCode: {qrCode} không thuộc phiếu nhập {request.DocumentNo}!");
+                        continue;
+                    }
+                    var checkScan = await _context.QRCodeEntry.FirstOrDefaultAsync(e => e.QRCode == qrCode && e.DocumentNo == request.DocumentNo);
+                    if (checkScan != null)
+                    {
+                        results.Add($"Lỗi! QRCode:{qrCode} đã được quét");
+                        continue;
+                    }
+                    var dto = new QRCodeEntryQLTB
+                    {
+                        QRCode = qrCode,
+                        EquipmentCode = asset.EquipmentCode,
+                        EquipmentSubCode = asset.EquipmentSubCode,
+                        EquipmentGroupCode = asset.EquipmentGroupCode,
+                        DocumentNo = request.DocumentNo,
+                        DocumentType = request.DocumentType,
+                        ManageUnit = request.Unit,
+                        UsingUnit = request.Unit,
+                        PostingDate = DateTime.Now,
+                        UserId = request.UserId,
+                        Respon = asset.Responsibility,
+                        SourceCode = asset.SourceCode
 
+                    };
+                    _context.QRCodeEntry.Add(dto);
+
+                    //update
+                    asset.ManageUnit = request.Unit;
+                    asset.UsingUnit = request.Unit;
+                    asset.DocumentNo = request.DocumentNo;
+                    asset.DocumentType = request.DocumentType;
+
+                    switch (request.DocumentType)
+                    {
+                        case 0: //Nhập mua mới
+                            asset.Status = 0;
+                            asset.StatusGroup = 0;
+                            asset.LocationCode = "";
+                            break;
+                        case 5: //Nhập thuê đơn vị ngoài
+                            asset.Status = 5;
+                            asset.StatusGroup = 2;
+                            asset.LocationCode = "";
+                            break;
+                        case 12: //xuất trả thuê
+                            //asset.Status = 4;
+                            //asset.StatusGroup = -1;
+                            asset.StatusGroup = 2;
+                            asset.Status = -1;
+                            break;
+                        
+                        case 16: //Xuất thanh lý
+                            asset.Status = -1;
+                            asset.StatusGroup = -1;
+                            asset.LocationCode = "";
+                            break;
+                       
+                    }
+                    await _context.SaveChangesAsync();
+                }
+                catch (Exception ex)
+                {
+                    results.Add($"❌ {qrCode}: {ex.Message}");
+                }
+
+            }
+
+            var docEntry = await _context.DocumentEntry.CountAsync(e => e.DocumentNo == request.DocumentNo);
+            var qrEntry = await _context.QRCodeEntry
+            .Where(e => e.DocumentNo == request.DocumentNo)
+            .CountAsync();
+            if (docEntry == qrEntry)
+            {
+                if (docEntryHeader != null)
+                {
+
+                    docEntryHeader.CheckQR = 1;
+                    docEntryHeader.Status = 2;
+                    docEntryHeader.PostingDate = DateTime.Now;
+                    foreach (var line in docEntryLine)
+                    {
+                        line.Status = 2;
+                    }
+                }
+            }
+            await _context.SaveChangesAsync();
+            results.Add($"✅ Quét thành công");
+            return results;
+        }
+
+        //Cập nhật trạng thái
         public async Task<List<string>> ProcessQRCodeBatchAsync(RequestEntryType1 request)
         {
             var results = new List<string>();
             var distinctQRCodes = request.QRCodes.Distinct().ToList();
             var docEntryHeader = await _context.DocumentEntryHeader.FirstOrDefaultAsync(e => e.No == request.DocumentNo);
+            var docEntryLine = await _context.DocumentEntry.Where(e => e.DocumentNo == request.DocumentNo).ToListAsync();
             foreach (var qrCode in distinctQRCodes)
             {
                 try
@@ -49,11 +160,15 @@ namespace EquipManagementAPI.Services
                         continue;
                     }
                     var checkStatus = await _context.DocumentEntry.FirstOrDefaultAsync(e => e.QRCode == qrCode && e.DocumentNo == request.DocumentNo);
-                    if (checkStatus.Status !=2 && docEntryHeader.Status !=2)
+                    if (request.DocumentType != 1 && request.DocumentType != 12 && request.DocumentType != 10 )
                     {
-                        results.Add($"Lỗi! QRCode:{qrCode} chưa được kho công ty xác nhận!");
-                        continue;
+                        if (checkStatus.Status != 2 && docEntryHeader.Status != 2)
+                        {
+                            results.Add($"Lỗi! QRCode:{qrCode} chưa được kho công ty xác nhận!");
+                            continue;
+                        }
                     }
+                      
                     var dto = new QRCodeEntryQLTB
                     {
                         QRCode = qrCode,
@@ -80,56 +195,72 @@ namespace EquipManagementAPI.Services
 
                     switch (request.DocumentType)
                     {
-                        case 5: //Nhập thuê đơn vị ngoài
-                            asset.Status = 10;
+                        case 1: //Nhập điều chuyển đơn vị quản lý
+                            asset.Status = 0;
                             asset.StatusGroup = 0;
+                            asset.LocationCode = "";
+                            asset.ManageUnit = request.UsingUnit;
+                            asset.UsingUnit = request.UsingUnit;
+                            break;
+                        case 5: //Nhập thuê đơn vị ngoài
+                            asset.Status = 5;
+                            asset.StatusGroup = 2;
                             asset.LocationCode = "";
                             break;
                         case 12: //xuất trả thuê
                             //asset.Status = 4;
                             //asset.StatusGroup = -1;
-                            asset.StatusGroup = -1;
+                            asset.StatusGroup = 2;
                             asset.Status = -1;
                             break;
                         case 13: //Xuất trả NCC
                             //asset.Status = 5;
-                            asset.Status = 4; //Hỏng
+                            asset.Status = -1; //Hỏng
                             asset.StatusGroup = -1;
                             asset.LocationCode = "";
                             break;
                         case 15: //Xuất đơn vị ngoài sửa chữa
-                            asset.Status = 3; //Bảo hành
-                            asset.StatusGroup = -1;
+                            asset.Status = 2; 
+                            asset.StatusGroup = 0;
                             asset.LocationCode = "";
                             break;
                         case 3: //Nhập sau khi sửa chữa từ DV ngoài
-                            asset.Status = 14;
+                            asset.Status = 6;
+                            asset.UsingUnit = request.ManageUnit;
                             asset.StatusGroup = 0;
                             asset.LocationCode = "";
                             break;
                         case 16: //Xuất thanh lý
-                            asset.Status = 5;
-                            asset.StatusGroup = -1;
-                            asset.LocationCode = "";
-                            break;
-                        case 6: //Nhập mượn đơn vị ngoài
-                            asset.Status = 0;
-                            asset.StatusGroup = 0;
-                            asset.LocationCode = "";
-                            break;
-                        
-                        case 11: //Xuất trả mượn ĐV ngoài
                             asset.Status = -1;
                             asset.StatusGroup = -1;
                             asset.LocationCode = "";
                             break;
+                        case 6: //Nhập mượn đơn vị ngoài
+                            asset.Status = 4;
+                            asset.StatusGroup = 2;
+                            asset.LocationCode = "";
+                            break;
+                        //case 10: //Xuất trả kho tổng cty
+                        //    asset.Status = 6;
+                        //    asset.ManageUnit = request.UsingUnit;//Đơn vị nhận
+                        //    asset.UsingUnit = request.UsingUnit;//Đơn vị xuất
+                        //    asset.StatusGroup = 0;
+                        //    asset.LocationCode = "";
+                            //break;
+                        case 11: //Xuất trả mượn ĐV ngoài
+                            asset.Status = -1;
+                            asset.ManageUnit = request.ManageUnit;//Đơn vị nhận
+                            asset.UsingUnit = request.ManageUnit;//Đơn vị xuất
+                            asset.StatusGroup = 2;
+                            asset.LocationCode = "";
+                            break;
                         case 14: //Xuất cho ĐV ngoài mượn
-                            asset.Status = 6;
+                            asset.Status = 3;
                             asset.StatusGroup = 1;
                             asset.LocationCode = "";
                             break;
                         case 2: // Nhập ĐV ngoài trả mượn
-                            asset.Status = 14;
+                            asset.Status = 6;
                             asset.StatusGroup = 0;
                             asset.LocationCode = "";
                             break;
@@ -155,19 +286,23 @@ namespace EquipManagementAPI.Services
                     docEntryHeader.CheckQR = 1;
                     docEntryHeader.Status = 2;
                     docEntryHeader.PostingDate = DateTime.Now;
+                    foreach (var line in docEntryLine)
+                    {
+                        line.Status = 2;
+                    }
                 }
             }
             await _context.SaveChangesAsync();
             results.Add($"✅ Quét thành công");
             return results;
         }
-
+        //Với những type tự động tạo phiếu, không cần xác nhận
         public async Task<List<string>> ProcessScanQRCode_Type1(RequestEntryType1 request)
         {
             var results = new List<string>();
             try
             {
-                
+                var docEntryLine = await _context.DocumentEntry.Where(e => e.DocumentNo == request.DocumentNo).ToListAsync();
                 var distinctQRCodes = request.QRCodes.Distinct().ToList();
 
                 foreach (var qrCode in distinctQRCodes)
@@ -202,6 +337,10 @@ namespace EquipManagementAPI.Services
                     string dtoUsingUnit = request.UsingUnit;
                     switch (request.DocumentType)
                     {
+                        case 0:
+                            dtoManageUnit = request.ManageUnit;
+                            dtoUsingUnit = request.UsingUnit;
+                            break;
                         case 7: // Nhập mượn nội bộ
                             dtoManageUnit = request.ManageUnit;
                             dtoUsingUnit = request.UsingUnit;
@@ -262,7 +401,7 @@ namespace EquipManagementAPI.Services
                             equipLineNo.EndingNo.ToString(),
                             newNumber.ToString());
 
-                        equip.LineNo = Convert.ToInt16(seriesNo);
+                        equip.LineNo = seriesNo.ToString();
                         equipLineNo.LastUsed = newNumber;
                     }
 
@@ -271,9 +410,16 @@ namespace EquipManagementAPI.Services
                     equip.DocumentType = request.DocumentType;
                     switch (request.DocumentType)
                     {
-                        case 7://Nhập mượn nội bộ
-                            equip.Status = 14;
+                        case 4://Xuất chuyển đơn vị quản lý
+                            equip.Status = 0;
                             equip.StatusGroup = 0;
+                            equip.LocationCode = "";
+                            equip.ManageUnit = request.UsingUnit;
+                            equip.UsingUnit = request.UsingUnit;
+                            break;
+                        case 7://Nhập mượn nội bộ
+                            equip.Status = 4;
+                            equip.StatusGroup = 1;
                             equip.LocationCode = "";
                             equip.ManageUnit = request.ManageUnit;
                             equip.UsingUnit = request.UsingUnit;
@@ -282,35 +428,35 @@ namespace EquipManagementAPI.Services
                                  //asset.Status = 3;
                                  //asset.StatusGroup = -1;
                             equip.LocationCode = "";
-                            equip.Status = 14;
+                            equip.Status = 6;
                             equip.StatusGroup = 0;
                             equip.ManageUnit = request.UsingUnit;
                             equip.UsingUnit = request.UsingUnit;
                             break;
                         case 9://Xuất cho mượn nội bộ
-                            equip.Status = 14;
-                            equip.StatusGroup = 0;
+                            equip.Status = 3;
+                            equip.StatusGroup = 1;
                             equip.LocationCode = "";
                             equip.ManageUnit = request.ManageUnit;
                             equip.UsingUnit = request.UsingUnit;
                             break;
                         case 8: //Nhập hoàn trả nội bộ kho cty
                             equip.LocationCode = "";
-                            equip.Status = 14;
+                            equip.Status = 6;
                             equip.StatusGroup = 0;
                             equip.ManageUnit = request.UsingUnit;
                             equip.UsingUnit = request.UsingUnit;
                             break;
                         case 17: //Xuất trả mượn NB
                             equip.LocationCode = "";
-                            equip.Status = 14;
+                            equip.Status = 6;
                             equip.StatusGroup = 0;
                             equip.ManageUnit = request.ManageUnit;
                             equip.UsingUnit = request.ManageUnit;
                             break;
                         case 18: //Nhập trả mượn NB
                             equip.LocationCode = "";
-                            equip.Status = 14;
+                            equip.Status = 6;
                             equip.StatusGroup = 0;
                             equip.ManageUnit = request.ManageUnit;
                             equip.UsingUnit = request.ManageUnit;
@@ -386,11 +532,197 @@ namespace EquipManagementAPI.Services
                                     DocumentNo = newNo,
                                     EquipmentCode = line.EquipmentCode,
                                     EquipmentGroupCode = line.EquipmentGroupCode,
-                                    ManageUnit = line.ManageUnit,
-                                    UsingUnit = line.UsingUnit,
                                     UnitOfMeasure = line.UnitOfMeasure,
                                     Quantity = line.Quantity,
                                     DocumentType = 7,
+                                    QRCode = line.QRCode,
+                                    PostingDate = DateTime.Now,
+                                    Respon = line.Respon,
+                                    SourceCode = line.SourceCode,
+                                    DepartmentCode = line.DepartmentCode,
+                                    Brand = line.Brand,
+                                    Model = line.Model,
+                                    SerialNumber = line.SerialNumber,
+                                    Status = 0
+                                });
+                            }
+
+                            series.LastNoUsed += series.IncrementByNo;
+                        }
+                        if (request.DocumentType == 17)
+                        {
+                            var docHeader = await _context.DocumentEntryHeader.FirstOrDefaultAsync(e => e.No == request.DocumentNo);
+                            docHeader.Status = 2;
+                            docHeader.PostingDate = DateTime.Now;
+
+                            var docLine = await _context.DocumentEntry.Where(e => e.DocumentNo == request.DocumentNo).ToListAsync();
+                            foreach (var line in docLine)
+                            {
+                                line.Status = 2;
+                            }
+                            var series = await _context.noSeriesLine.FirstOrDefaultAsync(e => e.SeriesCode == "QLTB" && e.Code == "NTMNB");
+
+                            var newNo = series.StartingNo +
+                                        FormatDocumentNumber(series.EndingNo.ToString(), (series.LastNoUsed + series.IncrementByNo).ToString());
+
+                            bool existed = await _context.DocumentEntryHeader.AnyAsync(e => e.DocumentType == 18 && e.SourceNo == request.DocumentNo);
+
+                            if (existed)
+                            {
+                                results.Add("⚠️ Phiếu nhập mượn đã được tạo trước đó");
+                                return results;
+                            }
+
+
+                            var newHeader = new DocumentEntryHeader
+                            {
+                                No = newNo,
+                                ReceivingUnit = request.ManageUnit,
+                                ExportingUnit = request.UsingUnit,
+                                DocumentType = 18,
+                                PostingDate = DateTime.Now,
+                                DocumentDate = DateTime.Now,
+                                DueDate = docEntryHeader.DueDate,
+                                Creater = request.UserId,
+                                Responsibility = docEntryHeader.Responsibility,
+                                SourceCode = docEntryHeader.SourceCode,
+                                SourceNo = request.DocumentNo,
+                                CheckQR = 0,
+                                Status = 0
+                            };
+
+                            _context.DocumentEntryHeader.Add(newHeader);
+
+                            foreach (var line in docLine)
+                            {
+                                _context.DocumentEntry.Add(new DocumentEntry
+                                {
+                                    DocumentNo = newNo,
+                                    EquipmentCode = line.EquipmentCode,
+                                    EquipmentGroupCode = line.EquipmentGroupCode,
+                                    UnitOfMeasure = line.UnitOfMeasure,
+                                    Quantity = line.Quantity,
+                                    DocumentType = 18,
+                                    QRCode = line.QRCode,
+                                    PostingDate = DateTime.Now,
+                                    Respon = line.Respon,
+                                    SourceCode = line.SourceCode,
+                                    DepartmentCode = line.DepartmentCode,
+                                    Brand = line.Brand,
+                                    Model = line.Model,
+                                    SerialNumber = line.SerialNumber,
+                                    Status = 0
+                                });
+                            }
+
+                            series.LastNoUsed += series.IncrementByNo;
+                        }
+                        if (request.DocumentType == 4)
+                        {
+                            var docHeader = await _context.DocumentEntryHeader.FirstOrDefaultAsync(e => e.No == request.DocumentNo);
+                            docHeader.Status = 2;
+                            docHeader.PostingDate = DateTime.Now;
+
+                            var docLine = await _context.DocumentEntry.Where(e => e.DocumentNo == request.DocumentNo).ToListAsync();
+                            foreach (var line in docLine)
+                            {
+                                line.Status = 2;
+                            }
+                            var series = await _context.noSeriesLine.FirstOrDefaultAsync(e => e.SeriesCode == "QLTB" && e.Code == "NDC");
+
+                            var newNo = series.StartingNo +
+                                        FormatDocumentNumber(series.EndingNo.ToString(), (series.LastNoUsed + series.IncrementByNo).ToString());
+
+
+                            var newHeader = new DocumentEntryHeader
+                            {
+                                No = newNo,
+                                ReceivingUnit = request.UsingUnit,
+                                ExportingUnit = request.ManageUnit,
+                                DocumentType = 1,
+                                PostingDate = DateTime.Now,
+                                DocumentDate = DateTime.Now,
+                                DueDate = docEntryHeader.DueDate,
+                                Creater = request.UserId,
+                                Responsibility = docEntryHeader.Responsibility,
+                                SourceCode = docEntryHeader.SourceCode,
+                                SourceNo = request.DocumentNo,
+                                CheckQR = 0,
+                                Status = 0
+                            };
+
+                            _context.DocumentEntryHeader.Add(newHeader);
+
+                            foreach (var line in docLine)
+                            {
+                                _context.DocumentEntry.Add(new DocumentEntry
+                                {
+                                    DocumentNo = newNo,
+                                    EquipmentCode = line.EquipmentCode,
+                                    EquipmentGroupCode = line.EquipmentGroupCode,
+                                    UnitOfMeasure = line.UnitOfMeasure,
+                                    Quantity = line.Quantity,
+                                    DocumentType = 1,
+                                    QRCode = line.QRCode,
+                                    PostingDate = DateTime.Now,
+                                    Respon = line.Respon,
+                                    SourceCode = line.SourceCode,
+                                    DepartmentCode = line.DepartmentCode,
+                                    Brand = line.Brand,
+                                    Model = line.Model,
+                                    SerialNumber = line.SerialNumber,
+                                    Status = 0
+                                });
+                            }
+
+                            series.LastNoUsed += series.IncrementByNo;
+                        }
+                        if (request.DocumentType == 10)
+                        {
+                            var docHeader = await _context.DocumentEntryHeader.FirstOrDefaultAsync(e => e.No == request.DocumentNo);
+                            docHeader.Status = 2;
+                            docHeader.PostingDate = DateTime.Now;
+
+                            var docLine = await _context.DocumentEntry.Where(e => e.DocumentNo == request.DocumentNo).ToListAsync();
+                            foreach (var line in docLine)
+                            {
+                                line.Status = 2;
+                            }
+                            var series = await _context.noSeriesLine.FirstOrDefaultAsync(e => e.SeriesCode == "QLTB" && e.Code == "NTRCTY");
+
+                            var newNo = series.StartingNo +
+                                        FormatDocumentNumber(series.EndingNo.ToString(), (series.LastNoUsed + series.IncrementByNo).ToString());
+
+
+                            var newHeader = new DocumentEntryHeader
+                            {
+                                No = newNo,
+                                ReceivingUnit = request.UsingUnit,
+                                ExportingUnit = request.ManageUnit,
+                                DocumentType = 8,
+                                PostingDate = DateTime.Now,
+                                DocumentDate = DateTime.Now,
+                                DueDate = docEntryHeader.DueDate,
+                                Creater = request.UserId,
+                                Responsibility = docEntryHeader.Responsibility,
+                                SourceCode = docEntryHeader.SourceCode,
+                                SourceNo = request.DocumentNo,
+                                CheckQR = 0,
+                                Status = 0
+                            };
+
+                            _context.DocumentEntryHeader.Add(newHeader);
+
+                            foreach (var line in docLine)
+                            {
+                                _context.DocumentEntry.Add(new DocumentEntry
+                                {
+                                    DocumentNo = newNo,
+                                    EquipmentCode = line.EquipmentCode,
+                                    EquipmentGroupCode = line.EquipmentGroupCode,
+                                    UnitOfMeasure = line.UnitOfMeasure,
+                                    Quantity = line.Quantity,
+                                    DocumentType = 8,
                                     QRCode = line.QRCode,
                                     PostingDate = DateTime.Now,
                                     Respon = line.Respon,
@@ -409,6 +741,10 @@ namespace EquipManagementAPI.Services
                     docEntryHeader.CheckQR = 1;
                     docEntryHeader.Status = 2;
                     docEntryHeader.PostingDate = DateTime.Now;
+                    foreach (var line in docEntryLine)
+                    {
+                        line.Status = 2;
+                    }
                     await _context.SaveChangesAsync();
                 }
 
@@ -774,17 +1110,6 @@ namespace EquipManagementAPI.Services
             var checkEmployee = await _context.employee
                 .FirstOrDefaultAsync(e => e.No == request.UserID);
 
-            if (checkEmployee == null)
-            {
-                results.Add("Lỗi! Không tìm thấy thông tin nhân viên.");
-                return results;
-            }
-
-            if (checkEmployee.WorkShiftCode != "01020121" && checkEmployee.WorkShiftCode != "01010124")
-            {
-                results.Add("Lỗi! Bạn không thuộc bộ phận bảo trì.");
-                return results;
-            }
 
             var checkEquip = await _context.Equipment
                 .FirstOrDefaultAsync(e => e.QRCode == request.QRCode);
@@ -806,19 +1131,29 @@ namespace EquipManagementAPI.Services
             var unit1 = await _context.Department.FirstOrDefaultAsync(e => e.Code == checkEquip.UsingUnit);
             var unit2 = await _context.Department.FirstOrDefaultAsync(e => e.Code == workShift.WorkCenterCode);
 
-            //if (!string.Equals(checkEmployee.WorkCenterCode, checkEquip.ManageUnit, StringComparison.OrdinalIgnoreCase))
-            //{
-            //    results.Add($"Lỗi! Thiết bị {request.QRCode} thuộc đơn vị {unit1?.Name}.");
-            //    return results;
-            //}
-            if (!string.Equals(checkEquip.UsingUnit, workShift.WorkCenterCode, StringComparison.OrdinalIgnoreCase))
-            {
-                results.Add($"Lỗi! Thiết bị {request.QRCode} đang sử dụng ở đơn vị {unit1?.Name}, không phải ở {unit2?.Name}.");
-                return results;
-            }
 
+            var query = from a in _context.userRoles
+                        join b in _context.roles on a.RoleID equals b.Id into roleJoin
+                        from b in roleJoin.DefaultIfEmpty()
+                        select a.RoleID;
+            var roleID = await query.FirstOrDefaultAsync();
+            if (roleID != 1)
+            {
+                if (!string.Equals(checkEmployee.WorkCenterCode, checkEquip.ManageUnit, StringComparison.OrdinalIgnoreCase))
+                {
+                    results.Add($"Lỗi! Thiết bị {request.QRCode} thuộc đơn vị {unit1?.Name}.");
+                    return results;
+                }
+
+                if (!string.Equals(checkEquip.UsingUnit, workShift.WorkCenterCode, StringComparison.OrdinalIgnoreCase))
+                {
+                    results.Add($"Lỗi! Thiết bị {request.QRCode} đang sử dụng ở đơn vị {unit1?.Name}, không phải ở {unit2?.Name}.");
+                    return results;
+                }
+                
+            }
             var checkMainTrackWeek = await _context.maintenanceTrackingsWeek
-                .FirstOrDefaultAsync(e => e.QRCode == request.QRCode && e.MaintenanceType == request.type);
+                    .FirstOrDefaultAsync(e => e.QRCode == request.QRCode && e.MaintenanceType == request.type);
 
             if (checkMainTrack == null && checkMainTrackWeek == null)
             {
@@ -850,74 +1185,27 @@ namespace EquipManagementAPI.Services
                 return results;
             }
 
-            if (request.type == "1W")
-            {
-                string equipGroup = checkMainTrackWeek?.EquipmentGroupCode;
-                DateTime nextNgayBD = checkMainTrackWeek?.NextMaintenance ?? DateTime.Now;
-
-                if (checkMainTrackWeek?.Status == 1)
-                {
-                    results.Add($"Lỗi QRCode {request.QRCode} đã được bảo dưỡng");
-                    return results;
-                }
-
-                var newHistory = new MaintenanceHistory
-                {
-                    EquipmentCode = equip.EquipmentCode,
-                    EquipGroupCode = equip.EquipmentGroupCode,
-                    QRCode = request.QRCode,
-                    Serial = equip.SerialNumber,
-                    Brand = equip.Brand,
-                    PostingDate = DateTime.Now,
-                    ManageUnit = equip.ManageUnit,
-                    UsingUnit = equip.UsingUnit,
-                    Location = equip.LocationCode,
-                    UserID = request.UserID,
-                    MaintenanceType = request.type,
-                    NextMaintenanceTime = checkMainTrackWeek.NextMaintenance,
-                    Status = 1
-                };
-                _context.maintenanceHistory.Add(newHistory);
-                await _context.SaveChangesAsync();
-
-                foreach (var item in request.Content)
-                {
-                    var newCheckList = new MaintenanceCheckList
-                    {
-                        HistoryID = newHistory.Id,
-                        MaintenanceType = request.type,
-                        EquipGroup = equip.EquipmentGroupCode,
-                        Task = item,
-                        MaintenanceTime = checkMainTrack?.NextMaintenance,
-                        EquipCode = equip.EquipmentCode
-                    };
-                    _context.maintenanceCheckList.Add(newCheckList);
-                }
-
-                int total = await _context.maintenanceContents
-                    .CountAsync(e => e.EquipGroupCode == equipGroup && e.MaintenanceType == request.type);
-                int done = request.Content.Count();
-
-                if (total > 0 && total == done)
-                {
-                    newHistory.Status = 0;
-                    checkMainTrackWeek.LastMaintenanceTime = DateTime.Now;
-                    checkMainTrackWeek.NextMaintenance = nextNgayBD.AddDays(7);
-                    checkMainTrackWeek.MaintenanceType = request.type;
-                    await _context.SaveChangesAsync();
-                }
-            }
-            else
-            {
                 string equipGroup = checkMainTrack?.EquipmentGroupCode;
-                DateTime nextNgayBD = checkMainTrack?.NextMaintenance ?? DateTime.Now;
-
-                if (checkMainTrack?.Status == 1)
+                //DateTime nextNgayBD = checkMainTrack?.NextMaintenance ?? DateTime.Now;
+            
+            if (checkMainTrack?.Status == 1)
                 {
                     results.Add($"Lỗi QRCode {request.QRCode} đã được bảo dưỡng");
                     return results;
                 }
+                var postingDate = request.MaintenanceDate;
+            DateTime nextNgayBD = postingDate ;
+            int isLate = 0;
+                int lateDays = 0;
 
+                if (checkMainTrack?.DueDate != null)
+                {
+                    if (postingDate.Date > checkMainTrack.DueDate.Date)
+                    {
+                        isLate = 1;
+                        lateDays = (postingDate.Date - checkMainTrack.DueDate.Date).Days;
+                    }
+                }
                 var newHistory = new MaintenanceHistory
                 {
                     EquipmentCode = equip.EquipmentCode,
@@ -925,14 +1213,18 @@ namespace EquipManagementAPI.Services
                     QRCode = request.QRCode,
                     Serial = equip.SerialNumber,
                     Brand = equip.Brand,
-                    PostingDate = DateTime.Now,
+                    PostingDate = postingDate,
                     ManageUnit = equip.ManageUnit,
                     UsingUnit = equip.UsingUnit,
                     Location = equip.LocationCode,
                     UserID = request.UserID,
                     MaintenanceType = request.type,
                     NextMaintenanceTime = checkMainTrack?.NextMaintenance,
-                    Status = 1
+                    Status = 1,
+                    DueDate = checkMainTrack.DueDate,
+
+                    isLate = isLate,
+                    LateDays = lateDays
                 };
 
                 try
@@ -975,31 +1267,55 @@ namespace EquipManagementAPI.Services
                 if (total > 0 && total == done)
                 {
                     newHistory.Status = 0;
-                    checkMainTrack.LastMaintenanceTime = DateTime.Now;
+                    checkMainTrack.LastMaintenanceTime = postingDate;
                     checkMainTrack.MocBDGanNhat = checkMainTrack.NextMaintenance;
+                
 
-                    switch (request.type)
-                    {
-                        case "3M":
-                            checkMainTrack.NextMaintenance = nextNgayBD.AddMonths(3);
-                            checkMainTrack.MaintenanceType = "6M";
-                            break;
-                        case "6M":
-                            checkMainTrack.NextMaintenance = nextNgayBD.AddMonths(3);
-                            checkMainTrack.MaintenanceType = "3M";
-                            break;
-                        case "1M":
-                            checkMainTrack.NextMaintenance = nextNgayBD.AddMonths(1);
-                            checkMainTrack.MaintenanceType = "1M";
-                            break;
-                        case "1Y":
-                            checkMainTrack.NextMaintenance = nextNgayBD.AddMonths(12);
-                            checkMainTrack.MaintenanceType = "1Y";
-                            break;
-                    }
+                switch (request.type)
+                {
+                    case "3M":
+                        checkMainTrack.NextMaintenance = nextNgayBD.AddMonths(3);
+                        checkMainTrack.MaintenanceType = "6M";
+                        checkMainTrack.DueDate = nextNgayBD.AddMonths(3);
+                        break;
+
+                    case "6M":
+                        checkMainTrack.NextMaintenance = nextNgayBD.AddMonths(3);
+                        checkMainTrack.MaintenanceType = "3M";
+                        checkMainTrack.DueDate = nextNgayBD.AddMonths(3);
+                        break;
+
+                    case "1M":
+                        checkMainTrack.NextMaintenance = nextNgayBD.AddMonths(1);
+                        checkMainTrack.MaintenanceType = "1M";
+                        checkMainTrack.DueDate = nextNgayBD.AddMonths(1);
+                        break;
+
+                    case "1Y":
+                        checkMainTrack.NextMaintenance = nextNgayBD.AddMonths(12);
+                        checkMainTrack.MaintenanceType = "1Y";
+                        checkMainTrack.DueDate = nextNgayBD.AddMonths(1);
+                        break;
+
+                    default:
+                        throw new Exception("Maintenance type không hợp lệ");
                 }
+                if (!checkMainTrack.NextMaintenance.HasValue)
+                {
+                    throw new Exception("NextMaintenance chưa được gán giá trị");
+                }
+                /* 🔹 TÍNH DUE DATE = NGÀY CUỐI CÙNG CỦA THÁNG */
+                var next = checkMainTrack.NextMaintenance.Value;
 
-                try
+                //DateTime newDueDate = new DateTime(next.Year, next.Month, 1)
+                //                          .AddMonths(1)
+                //                          .AddDays(-1);
+
+                //checkMainTrack.DueDate = newDueDate;
+
+            }
+
+            try
                 {
                     await _context.SaveChangesAsync();
                 }
@@ -1010,7 +1326,7 @@ namespace EquipManagementAPI.Services
                 }
 
                 results.Add("Đã ghi nhận bảo dưỡng thành công.");
-            }
+            
 
             return results;
         }
@@ -1543,7 +1859,9 @@ namespace EquipManagementAPI.Services
                 .Where(e => e.Code == equipment.ManageUnit)
                 .Select(e => e.Name)
                 .FirstOrDefaultAsync();
-
+            string usingUnitName = await (from e in _context.Department
+                                          where e.Code == equipment.UsingUnit
+                                          select e.Name).FirstOrDefaultAsync();
             // Base URL của server để hiển thị ảnh
             var baseUrl = $"{request.Scheme}://{request.Host}";
 
@@ -1573,6 +1891,8 @@ namespace EquipManagementAPI.Services
                 EquipmentCode = equipment.EquipmentCode,
                 EquipmentName = equipName,
                 ManageUnit = equipment.ManageUnit,
+                LineNo = equipment.LineNo.ToString(),
+                UsingUnit = usingUnitName,
                 ManageUnitName = unitName,
                 EquipmentGroupCode = equipment.EquipmentGroupCode,
                 Model = equipment.Model,
@@ -1622,7 +1942,9 @@ namespace EquipManagementAPI.Services
                 .Where(e => e.Code == equipment.ManageUnit)
                 .Select(e => e.Name)
                 .FirstOrDefaultAsync() ?? string.Empty;
-
+            string usingUnitName = await (from e in _context.Department
+                                          where e.Code == equipment.UsingUnit
+                                          select e.Name).FirstOrDefaultAsync();
             string baseUrl = $"{request.Scheme}://{request.Host}";
 
             var history = await _context.maintenanceHistory
@@ -1648,6 +1970,8 @@ namespace EquipManagementAPI.Services
                 EquipmentCode = equipment.EquipmentCode,
                 EquipmentName = equipName,
                 ManageUnit = equipment.ManageUnit,
+                LineNo = equipment.LineNo.ToString(),
+                UsingUnit = usingUnitName,
                 ManageUnitName = unitName,
                 EquipmentGroupCode = equipment.EquipmentGroupCode,
                 Model = equipment.Model,
@@ -2681,6 +3005,7 @@ namespace EquipManagementAPI.Services
                             orderby r.PostingDate descending
                             select new ItemRequireList
                             {
+                                No = r.No,  
                                 QRCode = r.QRCode,
                                 Reporter = emp != null ? emp.Name : string.Empty,
                                 CreatedDate = r.PostingDate.ToString("dd/MM/yyyy HH:mm"),
@@ -2719,6 +3044,7 @@ namespace EquipManagementAPI.Services
                             orderby r.PostingDate descending
                             select new ItemRequireList
                             {
+                                No = r.No,
                                 QRCode = r.QRCode,
                                 Reporter = emp != null ? emp.Name : string.Empty,
                                 CreatedDate = r.PostingDate.ToString("dd/MM/yyyy HH:mm"),
@@ -2736,7 +3062,7 @@ namespace EquipManagementAPI.Services
 
             }
         }
-        public async Task<HoanthanhSC_Detail_DTO> Get_DetailContentRepair(string qrCode)
+        public async Task<HoanthanhSC_Detail_DTO> Get_DetailContentRepair(string qrCode,string no)
         {
             
             var query = await (from r in _context.repairRequests
@@ -2756,7 +3082,7 @@ namespace EquipManagementAPI.Services
                                from content in repairContentJoin.DefaultIfEmpty()
                                join t in _context.repairType on content.RepairType equals t.Code into typeJoin
                                from t in typeJoin.DefaultIfEmpty()
-                               where r.QRCode == qrCode
+                               where r.QRCode == qrCode && r.No == no
                                select new HoanthanhSC_Detail_DTO
                                {
                                    Name = eg.Name,
@@ -2804,5 +3130,154 @@ namespace EquipManagementAPI.Services
 
             }
         }
+        public async Task<List<EquipmentDTO>> TongHopMayMoc()
+        {
+            try
+            {
+                var equips = from eq in _context.Equipment
+                             join loc in _context.locationXSDs
+                                on eq.LocationCode equals loc.Code into locJoin
+                             from loc in locJoin.DefaultIfEmpty()
+                             join wc in _context.Department on loc.DepartmentCode equals wc.Code into wcJoin from wc in wcJoin.DefaultIfEmpty()
+                             where eq.Status != -1
+                             select new EquipmentDTO
+                             {  
+                                 QRCode = eq.QRCode,
+                                 EquipmentName = eq.Name,
+                                 Brand = eq.Brand,
+                                 Model = eq.Model,
+
+                                 StatusGroup2 =
+                    (eq.Status == 1 || eq.Status == 2) ? "inUse" :
+                    (eq.Status == 0 || eq.Status == 6) ? "inStorage" :
+                    eq.Status == 3 ? "onLoan" :
+                    eq.Status == 4 ? "onBorrow" :
+                    eq.Status == 5 ? "onRent" :
+                    "unknown",
+                                 ManageUnitName = wc.Name,
+                                 LocationName = loc.Name,
+                                 LineNo = eq.LineNo
+                             };
+
+                return await equips.ToListAsync();
+            }
+            catch
+            {
+                return new List<EquipmentDTO>();
+            }
+        }
+        public async Task<List<EquipmentDTO>> TongHopMayMoc_ByUser(string userID)
+        {
+            try
+            {
+                var workcenter = await _context.employee.Where(e => e.No == userID).Select(e => e.WorkCenterCode).FirstOrDefaultAsync();
+                // Nếu user không có WorkCenterCode thì trả rỗng
+                
+
+                var equips = from eq in _context.Equipment
+                             join loc in _context.locationXSDs
+                                on eq.LocationCode equals loc.Code into locJoin
+                             from loc in locJoin.DefaultIfEmpty()
+                             join wc in _context.Department on loc.DepartmentCode equals wc.Code into wcJoin
+                             from wc in wcJoin.DefaultIfEmpty()
+                             where eq.Status != -1 && eq.ManageUnit == workcenter
+                             select new EquipmentDTO
+                             {
+                                 QRCode = eq.QRCode,
+                                 EquipmentName = eq.Name,
+                                 Brand = eq.Brand,
+                                 Model = eq.Model,
+                                 StatusGroup2 =
+                    (eq.Status == 1 || eq.Status == 2) ? "inUse" :
+                    (eq.Status == 0 || eq.Status == 6) ? "inStorage" :
+                    eq.Status == 3 ? "onLoan" :
+                    eq.Status == 4 ? "onBorrow" :
+                    eq.Status == 5 ? "onRent" :
+                    "unknown",
+                                 ManageUnitName = wc.Name,
+                                 LocationName = loc.Name,
+                                 LineNo = eq.LineNo
+                             };
+
+                return await equips.ToListAsync();
+            }
+            catch
+            {
+                return new List<EquipmentDTO>();
+            }
+        }
+        //public async Task<List<EquipmentDTO>> TongHopMayMoc_ByStatus(String status)
+        //{
+        //    try
+        //    {
+        //        short statusValue = Convert.ToInt16(status);
+        //        var equips = from eq in _context.Equipment
+        //          .IgnoreQueryFilters()
+        //                     join loc in _context.locationXSDs
+        //                         on eq.LocationCode equals loc.Code into locJoin
+        //                     from loc in locJoin.DefaultIfEmpty()
+        //                     where (statusValue == 0 || statusValue == 1 || statusValue == 2)
+        //                         ? (eq.Status == 0 || eq.Status == 1 || eq.Status == 2)
+        //                         : eq.Status == statusValue
+        //                     select new EquipmentDTO
+        //                     {
+        //                         QRCode = eq.QRCode,
+        //                         EquipmentName = eq.Name,
+        //                         Brand = eq.Brand,
+        //                         Model = eq.Model,
+        //                         StatusGroup2 =
+        //            (eq.Status == 1 || eq.Status == 2) ? "inUse" :
+        //            (eq.Status == 0 || eq.Status == 6) ? "inStorage" :
+        //            eq.Status == 3 ? "onLoan" :
+        //            eq.Status == 4 ? "onBorrow" :
+        //            eq.Status == 5 ? "onRent" :
+        //            "unknown",
+
+        //                         LocationName = loc.Name,
+        //                         LineNo = eq.LineNo
+        //                     };
+
+        //        var sql = equips.ToQueryString();
+        //        Console.WriteLine(sql);
+        //        return await equips.ToListAsync();
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        log lỗi nếu cần
+        //        return new List<EquipmentDTO>();
+        //    }
+        //}
+        //public async Task<List<EquipmentDTO>> TongHopMayMoc_ByUser_ByStatus(String status,String userId)
+        //{
+        //    try
+        //    {
+        //        var equips = from eq in _context.Equipment
+        //                     join loc in _context.locationXSDs on eq.LocationCode equals loc.Code into locJoin
+        //                     from loc in locJoin.DefaultIfEmpty()
+        //                     select new EquipmentDTO
+        //                     {
+        //                         QRCode = eq.QRCode,
+        //                         EquipmentName = eq.Name,
+        //                         Brand = eq.Brand,
+        //                         Model = eq.Model,
+        //                         StatusGroup2 =
+        //            (eq.Status == 0 || eq.Status == 1 || eq.Status == 2) ? "inUse" :
+        //            eq.Status == 6 ? "inStorage" :
+        //            eq.Status == 3 ? "onLoan" :
+        //            eq.Status == 4 ? "onBorrow" :
+        //            eq.Status == 5 ? "onRent" :
+        //            "unknown",
+        //                         LocationName = loc.Name,
+        //                         LineNo = eq.LineNo
+        //                     };
+
+        //        return await equips.ToListAsync();
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        // log lỗi nếu cần
+        //        return new List<EquipmentDTO>();
+        //    }
+        //}
     }
 }

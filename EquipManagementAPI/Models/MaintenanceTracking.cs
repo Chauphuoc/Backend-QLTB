@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.VisualBasic;
+using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -53,4 +54,5 @@ public class MaintenanceTracking
 
     [Column("MOC_BD_GANNHAT")]
     public DateTime? MocBDGanNhat { get; set; }
+    public DateTime DueDate { get; set; }
 }

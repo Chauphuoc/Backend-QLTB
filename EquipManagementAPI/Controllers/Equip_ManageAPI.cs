@@ -82,7 +82,26 @@ public class Equip_ManageAPI : ControllerBase
         }
         return Ok(equip);
     }
+    //QUét kho tổng nhập
+    [HttpPost("ctyscan")]
+    [ProducesResponseType(201)]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(500)]
+    [MaintenanceAuthorize("Admin", "Manager", "Khocty", "Baotri1", "Baotri2")]
+    public async Task<ActionResult> ScanQRNhapCty([FromBody] RequestEntryType0 data)
+    {
+        try
+        {
+            return Ok(await _service.ProcessQRCode_NhapCty(data));
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
 
+    
     [HttpPost("scan")]
     [ProducesResponseType(201)]
     [ProducesResponseType(200)]
@@ -910,9 +929,11 @@ public class Equip_ManageAPI : ControllerBase
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
     [MaintenanceAuthorize(new string[] { "Admin", "Manager", "Baotri1", "Baotri2" })]
-    public async Task<ActionResult<HoanthanhSC_Detail_DTO>> Detail_Content_Repair([FromQuery] string qrcode)
+    public async Task<ActionResult<HoanthanhSC_Detail_DTO>> Detail_Content_Repair(
+    [FromQuery] string qrcode,
+    [FromQuery] string? no = null)
     {
-        return Ok(await _service.Get_DetailContentRepair(qrcode));
+        return Ok(await _service.Get_DetailContentRepair(qrcode, no));
     }
     [HttpGet("hoanthanhsc/repair-details/{type}")]
     [ProducesResponseType(200)]
@@ -950,4 +971,41 @@ public class Equip_ManageAPI : ControllerBase
 
         return Ok(device);
     }
+
+    [HttpGet("all-machines")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [MaintenanceAuthorize(new string[] { "Admin", "Manager", "Baotri1", "Baotri2" })]
+    public async Task<ActionResult> TongHopMayMoc([FromQuery] string? userId)
+    {
+        if (string.IsNullOrEmpty(userId))
+        {
+            // Admin hoặc Manager gọi API không có userId → lấy toàn bộ
+            var allData = await _service.TongHopMayMoc();
+            return Ok(allData);
+        }
+        // Các user thường gọi API có userId → lọc theo user
+        var filteredData = await _service.TongHopMayMoc_ByUser(userId);
+        return Ok(filteredData);
+    }
+    //[HttpGet("machines-by-status")]
+    //[ProducesResponseType(200)]
+    //[ProducesResponseType(400)]
+    //[MaintenanceAuthorize(new string[] { "Admin", "Manager", "Baotri1", "Baotri2" })]
+    //public async Task<ActionResult> TongHopMayMoc_ByStatus([FromQuery] string status, [FromQuery] string? userId)
+    //{
+    //    if (string.IsNullOrEmpty(status))
+    //    {
+    //        return BadRequest("status is required");
+    //    }
+    //    if (string.IsNullOrEmpty(userId))
+    //    {
+    //        // Admin hoặc Manager gọi API không có userId → lấy toàn bộ
+    //        var allData = await _service.TongHopMayMoc_ByStatus(status);
+    //        return Ok(allData);
+    //    }
+    //    // Các user thường gọi API có userId → lọc theo user
+    //    var filteredData = await _service.TongHopMayMoc_ByUser_ByStatus(status,userId);
+    //    return Ok(filteredData);
+    //}
 }

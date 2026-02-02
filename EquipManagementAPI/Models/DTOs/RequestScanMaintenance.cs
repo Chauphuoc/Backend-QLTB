@@ -6,5 +6,6 @@
         public string type { get; set; }
         public List<string> Content { get; set; }
         public string UserID { get; set; }
+        public DateTime MaintenanceDate { get; set; }
     }
 }

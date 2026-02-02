@@ -15,7 +15,7 @@ public class Equipment
     public string EquipmentCode { get; set; }
 
     [Column("Line No")]
-    public int? LineNo { get; set; }
+    public string? LineNo { get; set; }
 
     [Column("Manage Unit")]
     public string? ManageUnit { get; set; }

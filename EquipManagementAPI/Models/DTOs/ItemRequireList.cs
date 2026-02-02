@@ -2,6 +2,7 @@
 {
     public class ItemRequireList
     {
+        public string No {  get; set; }
         public string QRCode { get; set; }
         public string Reporter { get; set; }
         public string CreatedDate { get; set; }

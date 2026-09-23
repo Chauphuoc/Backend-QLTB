@@ -1,4 +1,5 @@
 ﻿using System;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace EquipManagementAPI.Models;
@@ -6,7 +7,6 @@ namespace EquipManagementAPI.Models;
 [Table("Maintenance History")]
 public class MaintenanceHistory
 {
-    [Column("RowID")]
     public int RowID { get; set; }
 
     [Column("Equipment Code")]
@@ -39,12 +39,12 @@ public class MaintenanceHistory
 
     [Column("Next maintenance time")]
     public DateTime? NextMaintenanceTime { get; set; }
-
+    [Key]
     [Column("Id")]
     public int Id { get; set; }
 
     public int? Status { get; set; }
-    public DateTime DueDate { get; set; }
-    public int isLate { get; set; } 
-    public  int LateDays { get; set; }
+    public DateTime? DueDate { get; set; }
+    public int? isLate { get; set; } 
+    public  int? LateDays { get; set; }
 }

@@ -8,10 +8,29 @@ using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using Swashbuckle.AspNetCore.SwaggerUI;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-
+using FirebaseAdmin;
+using Google.Apis.Auth.OAuth2;
 var builder = WebApplication.CreateBuilder(args);
 
 var configuration = builder.Configuration;
+
+// Khởi tạo Firebase Admin SDK
+var firebaseKeyPath = Path.Combine(AppContext.BaseDirectory, "firebase-service-account.json");
+if (!File.Exists(firebaseKeyPath))
+    firebaseKeyPath = Path.Combine(Directory.GetCurrentDirectory(), "firebase-service-account.json");
+
+if (File.Exists(firebaseKeyPath))
+{
+    FirebaseApp.Create(new AppOptions()
+    {
+        Credential = GoogleCredential.FromFile(firebaseKeyPath)
+    });
+    Console.WriteLine("[Firebase] Khởi tạo thành công.");
+}
+else
+{
+    Console.WriteLine("[Firebase] CẢNH BÁO: Không tìm thấy firebase-service-account.json. Push notification sẽ bị tắt.");
+}
 
 // Cấu hình DbContext với SQL Server
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -46,10 +65,13 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
+
 // Đăng ký các service tùy chỉnh
 builder.Services.AddScoped<IDocEntryService, DocEntryService>();
 builder.Services.AddScoped<IAssetService, AssetService>();
-
+builder.Services.AddScoped<IQMService, QMService>();
+builder.Services.AddScoped<IProductionPlanService, ProductionPlanService>();
+builder.Services.AddSingleton<FcmService>();
 // Thêm controller, Swagger và CORS
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

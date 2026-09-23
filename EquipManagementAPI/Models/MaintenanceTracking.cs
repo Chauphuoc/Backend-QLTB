@@ -54,5 +54,5 @@ public class MaintenanceTracking
 
     [Column("MOC_BD_GANNHAT")]
     public DateTime? MocBDGanNhat { get; set; }
-    public DateTime DueDate { get; set; }
+    public DateTime? DueDate { get; set; }
 }

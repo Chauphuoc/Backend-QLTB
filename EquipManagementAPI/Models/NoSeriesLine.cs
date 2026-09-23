@@ -73,35 +73,10 @@ public class NoSeriesLine
     [Key]
     public int RowID { get; set; }
 
-    [Column("Bank Account")]
-    public string? BankAccount { get; set; }
-
-    [Column("Category Code")]
-    public string? CategoryCode { get; set; }
-
-    public decimal? Diameter { get; set; }
-
-    public decimal? Height { get; set; }
-
-    public decimal? Length { get; set; }
-
-    [Column("Sub Group Code")]
-    public string? SubGroupCode { get; set; }
-
-    public decimal? Surface { get; set; }
-
-    public decimal? Width { get; set; }
-
-    [Column("Default Bank")]
-    public string? DefaultBank { get; set; }
-
-    [Column("Setup Type")]
-    public int? SetupType { get; set; }
+    
 
     [Column("Ext_ Ending No_")]
     public int? ExtEndingNo { get; set; }
 
     public int? Status { get; set; }
-
-    public int? Blocked { get; set; }
 }

@@ -75,6 +75,7 @@ namespace EquipManagementAPI.Services
         Task<List<string>> ProcessScan_KiemKe_External(EquipScanKK_External_DTO request);
         Task<List<EquipmentDTO>> TongHopMayMoc();
         Task<List<EquipmentDTO>> TongHopMayMoc_ByUser(string userID);
+        Task<string?> GetDefaultMaintenanceTypeByQRCode(string qrCode);
         //Task<List<EquipmentDTO>> TongHopMayMoc_ByStatus(String status);
         //Task<List<EquipmentDTO>> TongHopMayMoc_ByUser_ByStatus(String status, String userId);
     }

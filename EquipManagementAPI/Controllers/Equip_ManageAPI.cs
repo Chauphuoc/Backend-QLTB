@@ -7,6 +7,7 @@ using EquipManagementAPI.Helpers;
 using EquipManagementAPI.Models;
 using EquipManagementAPI.Models.DTOs;
 using EquipManagementAPI.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -19,18 +20,20 @@ public class Equip_ManageAPI : ControllerBase
     private readonly ApplicationDbContext _context;
 
     private readonly IAssetService _service;
+    private readonly FcmService _fcmService;
 
-    public Equip_ManageAPI(ApplicationDbContext context, IAssetService service)
+    public Equip_ManageAPI(ApplicationDbContext context, IAssetService service, FcmService fcmService)
     {
         _context = context;
         _service = service;
+        _fcmService = fcmService;
     }
 
     [HttpGet("{code}", Name = "GetQuip")]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
     [ProducesResponseType(404)]
-    [MaintenanceAuthorize("Admin", "Manager", "Khocty", "Baotri1", "Baotri2", "Chuyen1", "Chuyen2")]
+    //[MaintenanceAuthorize("Admin", "Manager", "Khocty", "Baotri1", "Baotri2", "Chuyen1", "Chuyen2")]
     public async Task<ActionResult<EquipmentDTO>> GetEquipment(string code)
     {
         if (code == "")
@@ -452,11 +455,22 @@ public class Equip_ManageAPI : ControllerBase
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
     [MaintenanceAuthorize(new string[] { "Admin", "Manager", "Baotri1", "Baotri2" })]
-    public async Task<ActionResult<MaintenanceTypeDTO>> GetMaintenanceType()
+    public async Task<ActionResult<MaintenanceTypeDTO>> GetMaintenanceType([FromQuery] string? QRCode = null)
     {
         try
         {
-            return Ok(await _service.GetMaintenanceType());
+            var list = await _service.GetMaintenanceType();
+
+            if (string.IsNullOrEmpty(QRCode))
+                return Ok(list); // Giữ nguyên response cũ (array)
+
+            var defaultType = await _service.GetDefaultMaintenanceTypeByQRCode(QRCode);
+
+            return Ok(new
+            {
+                list,
+                defaultType // null nếu không tìm thấy
+            });
         }
         catch (Exception ex)
         {
@@ -549,7 +563,7 @@ public class Equip_ManageAPI : ControllerBase
     [ProducesResponseType(204)]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
-    [MaintenanceAuthorize(new string[] { "Admin", "Manager", "Baotri1", "Baotri2", "Chuyen1", "Chuyen2" })]
+    //[MaintenanceAuthorize(new string[] { "Admin", "Manager", "Baotri1", "Baotri2", "Chuyen1", "Chuyen2" })]
     public async Task<ActionResult> Request_SuaChua([FromBody] RequestSuaChua request)
     {
         try
@@ -558,20 +572,121 @@ public class Equip_ManageAPI : ControllerBase
             {
                 return BadRequest();
             }
-            return Ok(await _service.Process_SuaChua(request));
+            var result = await _service.Process_SuaChua(request);
+
+            // Chỉ gửi FCM khi không có lỗi
+            if (result == null || result.Any(msg => msg.Contains("Lỗi")))
+                return Ok(result);
+
+            // Lấy toàn bộ data từ DB TRƯỚC khi Task.Run (tránh DbContext bị dispose)
+            var employee = await _context.employee
+                .FirstOrDefaultAsync(e => e.No == request.UserID);
+            var employeeName = employee?.Name ?? request.UserID;
+
+            var requesterToken = await _context.userDeviceTokens
+                .Where(t => t.UserID == request.UserID)
+                .Select(t => t.DeviceToken)
+                .FirstOrDefaultAsync();
+
+            var maintenanceRoleName = employee?.WorkCenterCode == "0101" ? "Baotri1"
+                                   : employee?.WorkCenterCode == "0102" ? "Baotri2"
+                                   : null;
+
+            List<int> maintenanceRoleIds = new();
+            if (!string.IsNullOrEmpty(maintenanceRoleName))
+            {
+                maintenanceRoleIds = await _context.roles
+                    .Where(r => r.Name != null && r.Name == maintenanceRoleName)
+                    .Select(r => r.Id)
+                    .ToListAsync();
+            }
+
+            var maintenanceUserIds = await _context.userRoles
+                .Where(ur => maintenanceRoleIds.Contains(ur.RoleID))
+                .Select(ur => ur.UserID)
+                .Distinct()
+                .ToListAsync();
+
+            var maintenanceTokens = await _context.userDeviceTokens
+                .Where(t => maintenanceUserIds.Contains(t.UserID))
+                .Select(t => t.DeviceToken)
+                .ToListAsync();
+
+            // Gửi FCM ở background với data đã lấy sẵn (không dùng _context trong Task.Run)
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var tasks = new List<Task>();
+
+                    if (!string.IsNullOrEmpty(requesterToken))
+                    {
+                        tasks.Add(_fcmService.SendAsync(
+                            requesterToken,
+                            title: "Yêu cầu sửa chữa thành công",
+                            body: $"Nhân viên {employeeName} vừa tạo yêu cầu sửa chữa thành công.",
+                            data: new Dictionary<string, string> { { "screen", "SuaChua" } }
+                        ));
+                    }
+
+                    tasks.AddRange(maintenanceTokens.Select(token => _fcmService.SendAsync(
+                        token,
+                        title: "Yêu cầu sửa chữa mới",
+                        body: $"Nhân viên {employeeName} vừa tạo yêu cầu sửa chữa. Thiết bị: {request.QRCode}",
+                        data: new Dictionary<string, string> { { "screen", "SuaChua" } }
+                    )));
+
+                    await Task.WhenAll(tasks);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[FCM Background] Lỗi gửi thông báo: {ex.Message}");
+                }
+            });
+
+            return Ok(result);
         }
         catch (Exception ex)
         {
             return BadRequest(ex.Message);
         }
     }
+    [HttpPost("registerDeviceToken")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    public async Task<ActionResult> RegisterDeviceToken([FromBody] RegisterTokenRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.UserID) || string.IsNullOrWhiteSpace(request.DeviceToken))
+            return BadRequest("Thiếu UserID hoặc DeviceToken");
+
+        var existing = await _context.userDeviceTokens
+            .FirstOrDefaultAsync(t => t.UserID == request.UserID);
+
+        if (existing != null)
+        {
+            existing.DeviceToken = request.DeviceToken;
+            existing.DeviceType = request.DeviceType;
+            existing.UpdatedAt = DateTime.UtcNow;
+        }
+        else
+        {
+            _context.userDeviceTokens.Add(new UserDeviceToken
+            {
+                UserID = request.UserID,
+                DeviceToken = request.DeviceToken,
+                DeviceType = request.DeviceType,
+            });
+        }
+
+        await _context.SaveChangesAsync();
+        return Ok();
+    }
 
     [HttpPost("baoduong/requireSC")]
     [ProducesResponseType(204)]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
-    [MaintenanceAuthorize(new string[] { "Admin", "Manager", "Baotri1", "Baotri2", "Chuyen1", "Chuyen2" })]
-    public async Task<ActionResult> BaoDuong_RequestSuaChua([FromBody] RequestSuaChua request)
+        public async Task<ActionResult> BaoDuong_RequestSuaChua([FromBody] RequestSuaChua request)
     {
         try
         {

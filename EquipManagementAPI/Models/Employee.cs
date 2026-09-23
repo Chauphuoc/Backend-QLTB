@@ -23,4 +23,5 @@ public class Employee
 
     [Column("Login ID")]
     public string LoginId { get; set; }
+    public int Status { get; set; }
 }

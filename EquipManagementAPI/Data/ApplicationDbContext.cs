@@ -131,4 +131,9 @@ public class ApplicationDbContext : DbContext
     public DbSet<MesPoCodeSequences> MesPoCodeSequences { get; set; }
     public DbSet<MesPoRenameHistory> MesPoRenameHistory { get; set; }
     public DbSet<ItemSize> ItemSizes { get; set; }
+    public DbSet<HRDailyWorkingHour> HRDailyWorkingHours { get; set; }
+    public DbSet<RegisterOverTime> RegisterOverTimes { get; set; }
+    public DbSet<UserSetupMobile> UserSetupMobiles { get; set; }
+    public DbSet<SalesOrderLine> SalesOrderLine { get; set; }
+    public DbSet<SalesOrderLineDetail> SalesOrderLineDetails { get; set; }
 }

@@ -72,201 +72,7 @@ namespace EquipManagementAPI.Controllers
         [ProducesResponseType(200)]
         [ProducesResponseType(400)]
         [ProducesResponseType(404)]
-        //    public async Task<ActionResult<IEnumerable<TeamDailyOutputDto>>> BaoCaoDoanhThu(
-        //[FromQuery] int month,
-        //[FromQuery] int year,
-        //[FromQuery] string? factoryId = null,
-        //[FromQuery] string? teamId = null)
-        //    {
-        //        if (month < 1 || month > 12 || year < 2000)
-        //            return BadRequest("month (1-12) hoặc year không hợp lệ.");
-
-        //        var daysInMonth = DateTime.DaysInMonth(year, month);
-        //        var startDate = new DateTime(year, month, 1);
-        //        var endDate = new DateTime(year, month, daysInMonth);
-        //        var monthStart = startDate; // ngày đầu tháng dùng để tra tỷ giá cho cả kỳ báo cáo
-
-        //        // ── 1. Lấy dữ liệu thực hiện (KHÔNG join trực tiếp, tách làm 2 bước) ────
-        //        var qBase = _context.qualityManagementSessions
-        //            .Where(q => q.InspectionDate >= startDate
-        //                     && q.InspectionDate <= endDate
-        //                     && q.OperationType == "1")
-        //            .AsNoTracking();
-
-        //        if (!string.IsNullOrWhiteSpace(factoryId) && factoryId != "all")
-        //            qBase = qBase.Where(q => q.WorkCenterCode == factoryId);
-        //        if (!string.IsNullOrWhiteSpace(teamId) && teamId != "all")
-        //            qBase = qBase.Where(q => q.WorkShiftCode.ToString() == teamId);
-
-        //        // Bước 1a: lấy dữ liệu thô của qualityManagementSessions (chạy xong, đóng reader)
-        //        var rawSessions = await qBase
-        //            .Select(q => new
-        //            {
-        //                q.WorkCenterCode,
-        //                q.WorkShiftCode,
-        //                q.InspectionDate,
-        //                q.ItemNo,
-        //                q.PassOutputQuantity
-        //            })
-        //            .ToListAsync();
-
-        //        // Bước 1b: lấy danh sách ItemNo cần tra đơn giá
-        //        var itemNos = rawSessions.Select(x => x.ItemNo).Distinct().ToList();
-        //        // Bước X: lấy tỷ giá Local Exchange áp dụng chung cho toàn bộ báo cáo,
-        //        // theo ngày đầu tháng gần nhất (<= monthStart), không phân biệt CurrencyCode
-        //        var localExchangeRate = await _context.CurrencyExchangeRates
-        //            .Where(e => e.StartingDate <= monthStart)
-        //            .OrderByDescending(e => e.StartingDate)
-        //            .Select(e => e.LocalExchange)
-        //            .FirstOrDefaultAsync();
-
-        //        if (localExchangeRate == 0) localExchangeRate = 1m;
-        //        // Bước 1c: lấy đơn giá tương ứng (không cần CurrencyCode/CurrencyFactor từ bảng này nữa)
-        //        var priceList = await _context.SalesOrderLineFactories
-        //            .Where(s => itemNos.Contains(s.ItemNo))
-        //            .AsNoTracking()
-        //            .Select(s => new
-        //            {
-        //                s.RowID,
-        //                s.ItemNo,
-        //                s.CmCost,
-        //                s.CmCostPlus
-        //            })
-        //            .ToListAsync();
-
-        //        // Bước 1d: với mỗi ItemNo, lấy dòng đầu tiên theo RowID (xử lý in-memory)
-        //        var priceByItem = priceList
-        //            .GroupBy(x => x.ItemNo)
-        //            .ToDictionary(
-        //                g => g.Key,
-        //                g => g.OrderBy(x => x.RowID).First()
-        //            );
-
-
-        //        // ── 2. Kế hoạch: tách tương tự, không join trực tiếp trong 1 query ─────
-        //        var planQuery = _context.ProductionPlans
-        //            .Where(p => p.ActualStartingDate >= startDate && p.ActualStartingDate <= endDate)
-        //            .AsNoTracking();
-
-        //        if (!string.IsNullOrWhiteSpace(factoryId) && factoryId != "all")
-        //            planQuery = planQuery.Where(p => p.WorkCenterCode == factoryId);
-        //        if (!string.IsNullOrWhiteSpace(teamId) && teamId != "all")
-        //            planQuery = planQuery.Where(p => p.WorkShiftCode.ToString() == teamId);
-
-        //        // Bước 2a: lấy dữ liệu kế hoạch thô
-        //        var rawPlans = await planQuery
-        //            .Where(p => p.ActualStartingDate.HasValue)
-        //            .Select(p => new
-        //            {
-        //                Day = p.ActualStartingDate!.Value.Day,
-        //                p.ItemNo,
-        //                p.TargetQuantityPerDay
-        //            })
-        //            .ToListAsync();
-
-        //        // Bước 2b: lấy đơn giá cho các ItemNo trong kế hoạch (bỏ CurrencyFactor cũ, lấy thêm CurrencyCode)
-        //        var planItemNos = rawPlans
-        //            .Select(p => p.ItemNo?.Trim().ToUpperInvariant())
-        //            .Where(x => !string.IsNullOrEmpty(x))
-        //            .Distinct()
-        //            .ToList();
-
-        //        // Bước 2b: lấy đơn giá cho các ItemNo trong kế hoạch (không cần CurrencyCode/CurrencyFactor)
-        //        //var planPriceList = await _context.SalesOrderLineFactories
-        //        //    .Where(s => planItemNos.Contains(s.ItemNo.Trim().ToUpper()))
-        //        //    .AsNoTracking()
-        //        //    .Select(s => new { s.RowID, s.ItemNo, s.CmCost, s.CmCostPlus })
-        //        //    .ToListAsync();
-        //        var planPriceList = await _context.SalesOrderLineFactoryPlans
-        //            .Where(s => planItemNos.Contains(s.ItemNo.Trim().ToUpper()) && s.WorkShiftCode == teamId )
-        //            .OrderByDescending(s=>s.RowID)
-        //            .AsNoTracking()
-        //            .Select(s => new { s.RowID, s.ItemNo, s.CmCost, s.CmCostPlus })
-        //            .ToListAsync();
-
-        //        // Với mỗi ItemNo lấy dòng đầu tiên theo RowID, tính DonGia = (CmCost + CmCostPlus) * localExchangeRate
-        //        var planPriceByItem = planPriceList
-        //            .GroupBy(x => x.ItemNo.Trim().ToUpperInvariant())
-        //            .ToDictionary(
-        //                g => g.Key,
-        //                g => {
-        //                    var first = g.OrderBy(x => x.RowID).First();
-        //                    return ((first.CmCost ?? 0) + (first.CmCostPlus ?? 0)) * localExchangeRate;
-        //                });
-
-
-        //        // ── 4. Gộp thực hiện + đơn giá + tỷ giá, tính doanh thu (in-memory) ─────
-        //        // Bước 1f/4a: gộp thực hiện + đơn giá + tỷ giá, tính doanh thu (in-memory)
-        //        var actualByDay = rawSessions
-        //            .Select(q =>
-        //            {
-        //                priceByItem.TryGetValue(q.ItemNo, out var price);
-        //                var doanhThu = price == null
-        //                    ? 0m
-        //                    : ((price.CmCost ?? 0) + (price.CmCostPlus ?? 0))
-        //                      * localExchangeRate
-        //                      * (decimal)q.PassOutputQuantity;
-
-        //                return new
-        //                {
-        //                    Day = q.InspectionDate.Day,
-        //                    q.PassOutputQuantity,
-        //                    DoanhThu = doanhThu
-        //                };
-        //            })
-        //            .GroupBy(x => x.Day)
-        //            .ToDictionary(
-        //                g => g.Key,
-        //                g => new
-        //                {
-        //                    ThucHien = g.Sum(x => x.PassOutputQuantity),
-        //                    DoanhThu = g.Sum(x => x.DoanhThu)
-        //                });
-
-        //        // Bước 4c: gộp kế hoạch + đơn giá (in-memory) — Max(Qty)/Max(DonGia) theo (Ngày, ItemNo)
-        //        var planIntermediate = rawPlans
-        //            .GroupBy(p => new { p.Day, p.ItemNo })
-        //            .Select(g => new
-        //            {
-        //                g.Key.Day,
-        //                MaxQty = g.Max(x => x.TargetQuantityPerDay),
-        //                MaxDonGia = planPriceByItem.TryGetValue(g.Key.ItemNo?.Trim().ToUpperInvariant() ?? "", out var dg) ? dg : 0
-        //            })
-        //            .ToList();
-
-        //        // Bước 4d: Sum theo ngày
-        //        var planByDay = planIntermediate
-        //            .GroupBy(x => x.Day)
-        //            .ToDictionary(
-        //                g => g.Key,
-        //                g => new
-        //                {
-        //                    KeHoachSL = (decimal)g.Sum(x => x.MaxQty),
-        //                    DoanhThuKH = g.Sum(x => x.MaxQty * x.MaxDonGia)
-        //                });
-
-        //        // ── 5. Gộp kết quả theo từng ngày (in-memory, không đụng DbContext nữa) ─
-        //        var result = Enumerable.Range(1, daysInMonth).Select(day =>
-        //        {
-        //            var actual = actualByDay.GetValueOrDefault(day);
-        //            var plan = planByDay.GetValueOrDefault(day);
-
-        //            var dtThucHien = actual?.DoanhThu ?? 0;
-        //            var dtKeHoach = plan?.DoanhThuKH ?? 0;
-
-        //            return new TeamDailyRevenueDto
-        //            {
-        //                Day = day,
-        //                DoanhThuKeHoach = dtKeHoach,
-        //                DoanhThuThucTe = dtThucHien,
-        //                PctHoanThanh = dtKeHoach > 0
-        //                    ? Math.Round((double)(dtThucHien / dtKeHoach * 100), 2)
-        //                    : 0
-        //            };
-        //        });
-
-        //        return Ok(result);
-        //    }
+       
         public async Task<ActionResult<IEnumerable<TeamDailyOutputDto>>> BaoCaoDoanhThu(
     [FromQuery] int month,
     [FromQuery] int year,
@@ -339,57 +145,68 @@ namespace EquipManagementAPI.Controllers
                     g => g.OrderByDescending(x => x.RowID).First()
                 );
 
-            // ── 2. Kế hoạch ───────────────────────────────────────────────────
-            var planQuery = _context.ProductionPlans
-                .Where(p => p.ActualStartingDate >= startDate && p.ActualStartingDate <= endDate)
-                .AsNoTracking();
+            // ── 2. Kế hoạch — Sản lượng kế hoạch từ mes.factory_plans + mes.factory_plan_lines ──
+            var planQuery =
+                from line in _context.MesFactoryPlanLines
+                join plan in _context.MesFactoryPlans on line.FactoryPlanId equals plan.Id
+                where line.WorkDate >= startDate && line.WorkDate <= endDate && plan.IsActive == true
+                select new { plan.FactoryId, plan.LineNumber, plan.StyleId, plan.ColorId, line.WorkDate, line.PlannedQty };
 
             if (!string.IsNullOrWhiteSpace(factoryId) && factoryId != "all")
-                planQuery = planQuery.Where(p => p.WorkCenterCode == factoryId);
+                planQuery = planQuery.Where(x => x.FactoryId == factoryId);
             if (hasTeamFilter)
-                planQuery = planQuery.Where(p => p.WorkShiftCode.ToString() == teamId);
+                planQuery = planQuery.Where(x => x.LineNumber == teamId);
 
-            // Bước 2a: dữ liệu kế hoạch thô — có kèm WorkShiftCode để tra đúng đơn giá theo tổ
-            var rawPlans = await planQuery
-                .Where(p => p.ActualStartingDate.HasValue)
-                .Select(p => new
-                {
-                    Day = p.ActualStartingDate!.Value.Day,
-                    p.ItemNo,
-                    p.WorkShiftCode,
-                    p.TargetQuantityPerDay
-                })
-                .ToListAsync();
+            var rawPlans = await planQuery.ToListAsync();
 
-            // Bước 2b: ItemNo cần tra đơn giá kế hoạch
-            var planItemNos = rawPlans
-                .Select(p => p.ItemNo?.Trim().ToUpperInvariant())
-                .Where(x => !string.IsNullOrEmpty(x))
-                .Distinct()
-                .ToList();
+            // ── 3. Giá CM theo Style (giống ComputeRevenueDetailsAsync) ─────────
+            var planStyleIds = rawPlans.Select(p => p.StyleId).Where(s => !string.IsNullOrEmpty(s)).Distinct().ToList();
 
-            // Bước 2c: lấy đơn giá từ SalesOrderLineFactoryPlans theo ItemNo (+ WorkShiftCode nếu có filter)
-            var planPriceQuery = _context.SalesOrderLineFactoryPlans
-                .Where(s => planItemNos.Contains(s.ItemNo.Trim().ToUpper()));
-
-            if (hasTeamFilter)
-                planPriceQuery = planPriceQuery.Where(s => s.WorkShiftCode == teamId);
-
-            var planPriceList = await planPriceQuery
+            var planCmPricesRaw = await _context.StyleCmPrice
+                .Where(p => planStyleIds.Contains(p.StyleId)
+                         && p.IsActive
+                         && p.EffectiveDate <= endDate
+                         && (p.ExpiredDate == null || p.ExpiredDate > startDate))
+                .Include(p => p.StyleCmSplits)
                 .AsNoTracking()
-                .Select(s => new { s.RowID, s.ItemNo, s.WorkShiftCode, s.CmCost, s.CmCostPlus })
                 .ToListAsync();
 
-            // Group theo (ItemNo, WorkShiftCode), lấy RowID lớn nhất, tính DonGia = (CmCost + CmCostPlus) * tỷ giá
-            var planPriceByItem = planPriceList
-                .GroupBy(x => new { ItemNo = x.ItemNo.Trim().ToUpperInvariant(), x.WorkShiftCode })
-                .ToDictionary(
-                    g => g.Key,
-                    g =>
-                    {
-                        var latest = g.OrderByDescending(x => x.RowID).First();
-                        return ((latest.CmCost ?? 0) + (latest.CmCostPlus ?? 0)) * localExchangeRate;
-                    });
+            var planCmPriceByStyle = planCmPricesRaw
+                .GroupBy(p => p.StyleId)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(p => p.EffectiveDate).First());
+
+            var planOperationStyleIds = planCmPriceByStyle.Values.Where(p => p.IsOperation).Select(p => p.StyleId).Distinct().ToList();
+            var planLineNumbers = rawPlans.Select(p => p.LineNumber).Where(l => !string.IsNullOrEmpty(l)).Distinct().ToList();
+            var planOperationByTeamStyle = planOperationStyleIds.Count == 0
+                ? new Dictionary<(string StyleId, string LineNumber), string>()
+                : (await _context.MesFactoryPlans
+                    .Where(p => planOperationStyleIds.Contains(p.StyleId)
+                             && p.LineNumber != null && planLineNumbers.Contains(p.LineNumber)
+                             && p.IsActive && p.OperationCode != null)
+                    .Select(p => new { p.StyleId, p.LineNumber, p.OperationCode, p.CreatedAt })
+                    .ToListAsync())
+                    .GroupBy(p => (StyleId: p.StyleId, LineNumber: p.LineNumber!))
+                    .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.CreatedAt).First().OperationCode!);
+
+            // Trả về đơn giá CM (USD) cho 1 cặp (Style, Tổ) — 0 nếu chưa có giá hoặc chưa xác định công đoạn
+            decimal ResolvePlanUnitPrice(string? styleId, string? lineNumber)
+            {
+                if (string.IsNullOrEmpty(styleId) || !planCmPriceByStyle.TryGetValue(styleId, out var cmPrice))
+                    return 0m;
+
+                if (!cmPrice.IsOperation)
+                    return cmPrice.CmPrice;
+
+                if (!string.IsNullOrEmpty(lineNumber)
+                    && planOperationByTeamStyle.TryGetValue((styleId, lineNumber), out var operationCode))
+                {
+                    var split = cmPrice.StyleCmSplits.FirstOrDefault(s => s.OperationCode == operationCode);
+                    if (split != null)
+                        return split.SplitPrice;
+                }
+
+                return 0m;
+            }
 
             // ── 4. Gộp thực hiện + đơn giá + tỷ giá, tính doanh thu (in-memory) ─
             var actualByDay = rawSessions
@@ -421,29 +238,17 @@ namespace EquipManagementAPI.Controllers
                         DoanhThu = g.Sum(x => x.DoanhThu)
                     });
 
-            // Bước 4c: gộp kế hoạch + đơn giá — Max(Qty)/tra DonGia theo (Ngày, ItemNo, WorkShiftCode)
-            var planIntermediate = rawPlans
-                .GroupBy(p => new { p.Day, p.ItemNo, p.WorkShiftCode })
-                .Select(g => new
+            // Bước 4c: DT Kế hoạch theo ngày = Sản lượng kế hoạch (PlannedQty) * giá CM, quy đổi VND theo tỷ giá
+            var planByDay = rawPlans
+                .Select(p => new
                 {
-                    g.Key.Day,
-                    MaxQty = g.Max(x => x.TargetQuantityPerDay),
-                    MaxDonGia = planPriceByItem.TryGetValue(
-                        new { ItemNo = g.Key.ItemNo?.Trim().ToUpperInvariant() ?? "", WorkShiftCode = g.Key.WorkShiftCode.ToString() },
-                        out var dg) ? dg : 0
+                    Day = p.WorkDate.Day,
+                    DoanhThu = p.PlannedQty * ResolvePlanUnitPrice(p.StyleId, p.LineNumber) * localExchangeRate
                 })
-                .ToList();
-
-            // Bước 4d: Sum theo ngày
-            var planByDay = planIntermediate
                 .GroupBy(x => x.Day)
                 .ToDictionary(
                     g => g.Key,
-                    g => new
-                    {
-                        KeHoachSL = (decimal)g.Sum(x => x.MaxQty),
-                        DoanhThuKH = g.Sum(x => x.MaxQty * x.MaxDonGia)
-                    });
+                    g => new { DoanhThuKH = g.Sum(x => x.DoanhThu) });
 
             // ── 5. Gộp kết quả theo từng ngày ───────────────────────────────────
             var result = Enumerable.Range(1, daysInMonth).Select(day =>
@@ -1427,12 +1232,15 @@ namespace EquipManagementAPI.Controllers
             try
             {
                 var createdAt = DateTime.UtcNow;
-
+                var nextVersionNumber = await _context.MesProductionOrderVersions
+        .Where(v => v.ProductionOrderId == productionOrder.Id)
+        .MaxAsync(v => (int?)v.VersionNumber) ?? 0;
+                nextVersionNumber += 1;
                 var newVersion = new MesProductionOrderVersion
                 {
                     Id = Guid.NewGuid(),
                     ProductionOrderId = productionOrder.Id,
-                    VersionNumber = currentVersion.VersionNumber + 1,
+                    VersionNumber = nextVersionNumber,
                     VersionStatus = "ACTIVE",
                     TriggerType = "SPLIT",
                     SourcePoType = currentVersion.SourcePoType,
@@ -1443,7 +1251,7 @@ namespace EquipManagementAPI.Controllers
                 await _context.SaveChangesAsync();
 
                 currentVersion.VersionStatus = "SUPERSEDED";
-                currentVersion.SupersededBy = newVersion.Id; // TODO: xác nhận tên field thật
+                currentVersion.SupersededBy = newVersion.Id;
                 productionOrder.CurrentVersion = newVersion.VersionNumber;
                 productionOrder.UpdatedAt = createdAt;
 
@@ -1548,7 +1356,8 @@ namespace EquipManagementAPI.Controllers
                             PoId = newPoId,
                             ColorId = ctx.ColorId,
                             LineNumber = null,
-                            ProductionStartDate = DateOnly.FromDateTime(createdAt.Date),
+                            //ProductionStartDate = DateOnly.FromDateTime(createdAt.Date),
+                            ProductionStartDate = null,
                             TotalPlannedQty = childTotalForColor,
                             Status = "split",
                             CreatedBy = request.CreatedBy,
@@ -1584,7 +1393,8 @@ namespace EquipManagementAPI.Controllers
                                     PoId = newPoId,
                                     ColorId = ctx.ColorId,
                                     LineNumber = teamId,
-                                    ProductionStartDate = DateOnly.FromDateTime(createdAt.Date),
+                                    //ProductionStartDate = DateOnly.FromDateTime(createdAt.Date),
+                                    ProductionStartDate = null,
                                     TotalPlannedQty = teamGroup.Sum(x => x.Qty),
                                     Status = "split",
                                     CreatedBy = request.CreatedBy,
@@ -3401,6 +3211,669 @@ namespace EquipManagementAPI.Controllers
             }
         }
 
+        // Kết quả tra cứu tên -> mã. Key là tên (không phân biệt hoa thường); lỗi cũng lưu theo tên.
+        private sealed class StylePoNameResolution
+        {
+            public Dictionary<string, string> StyleIds { get; } = new(StringComparer.OrdinalIgnoreCase);
+            public Dictionary<string, string> StyleErrors { get; } = new(StringComparer.OrdinalIgnoreCase);
+            public Dictionary<string, string> PoIds { get; } = new(StringComparer.OrdinalIgnoreCase);
+            public Dictionary<string, string> PoErrors { get; } = new(StringComparer.OrdinalIgnoreCase);
+        }
+
+        // Tên Style -> StyleId (Item.Name -> Item.No).
+        // Tên PO -> PoId (SalesOrderHeader."PO Customer Name" -> No; không có thì fallback mes.production_order_items.POName -> PoId).
+        // Không khớp hoặc khớp nhiều mã đều ghi lỗi theo tên.
+        private async Task<StylePoNameResolution> ResolveStyleAndPoNamesAsync(IEnumerable<string> styleNames, IEnumerable<string> poNames)
+        {
+            var result = new StylePoNameResolution();
+            var styles = styleNames.Where(s => !string.IsNullOrEmpty(s)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            var pos = poNames.Where(s => !string.IsNullOrEmpty(s)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+            var itemCandidates = await _context.Item
+                .Where(i => styles.Contains(i.Name))
+                .Select(i => new { i.Name, i.No })
+                .ToListAsync();
+            var salesOrderCandidates = await _context.SalesOrderHeader
+                .Where(s => pos.Contains(s.POName))
+                .Select(s => new { s.No, s.POName })
+                .ToListAsync();
+            var poItemCandidates = await _context.MesProductionOrderItems
+                .Where(i => i.IsActive != false && pos.Contains(i.POName))
+                .Select(i => new { i.PoId, i.POName })
+                .ToListAsync();
+
+            foreach (var name in styles)
+            {
+                var ids = itemCandidates
+                    .Where(i => SameName(i.Name, name))
+                    .Select(i => i.No?.Trim() ?? string.Empty)
+                    .Where(v => v != string.Empty)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                if (ids.Count == 0)
+                    result.StyleErrors[name] = $"Không tìm thấy Style \"{name}\" trong danh mục Item";
+                else if (ids.Count > 1)
+                    result.StyleErrors[name] = $"Style \"{name}\" khớp nhiều mã hàng: {string.Join(", ", ids)}";
+                else
+                    result.StyleIds[name] = ids[0];
+            }
+
+            foreach (var name in pos)
+            {
+                var ids = salesOrderCandidates
+                    .Where(s => SameName(s.POName, name))
+                    .Select(s => s.No?.Trim() ?? string.Empty)
+                    .Where(v => v != string.Empty)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                if (ids.Count == 0)
+                {
+                    ids = poItemCandidates
+                        .Where(p => SameName(p.POName, name))
+                        .Select(p => p.PoId?.Trim() ?? string.Empty)
+                        .Where(v => v != string.Empty)
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+                }
+                if (ids.Count == 0)
+                    result.PoErrors[name] = $"Không tìm thấy Tên PO \"{name}\" (Sales Order / đơn hàng sản xuất)";
+                else if (ids.Count > 1)
+                    result.PoErrors[name] = $"Tên PO \"{name}\" khớp nhiều mã đơn hàng: {string.Join(", ", ids)}";
+                else
+                    result.PoIds[name] = ids[0];
+            }
+
+            return result;
+        }
+
+        private static bool SameName(string? a, string b) => string.Equals(a?.Trim(), b, StringComparison.OrdinalIgnoreCase);
+
+        // POST /api/production/production-orders/import-size
+        // Import số lượng size từ file Excel (FE đã parse). Khớp đơn hàng theo style + po + color.
+        // - Cập nhật planned_qty từng size ở mes.production_order_items
+        // - Cập nhật total_planned_qty của dòng tổng gốc (line_number IS NULL) ở mes.factory_plans
+        // All-or-nothing: có bất kỳ dòng lỗi nào thì không lưu gì cả và trả về danh sách lỗi.
+        [HttpPost("production-orders/import-size")]
+        [ProducesResponseType(typeof(object), 200)]
+        public async Task<IActionResult> ImportOrderSizes([FromBody] ImportOrderSizeRequest request)
+        {
+            if (request?.Items == null || request.Items.Count == 0)
+                return BadRequest(new { success = false, message = "Danh sách import không được để trống" });
+
+            var errors = new List<object>();
+            void AddError(int row, ImportOrderSizeRow? r, string message) =>
+                errors.Add(new { row, styleName = r?.StyleName, poName = r?.PoName, colorId = r?.ColorId, message });
+
+            var rows = request.Items
+                .Select((r, i) => new { Row = r, Index = i + 1 })
+                .ToList();
+
+            // 1. Validate payload + chuẩn hoá
+            foreach (var x in rows)
+            {
+                var r = x.Row;
+                if (r == null)
+                {
+                    AddError(x.Index, null, "Dòng dữ liệu rỗng");
+                    continue;
+                }
+                r.StyleName = r.StyleName?.Trim() ?? string.Empty;
+                r.PoName = r.PoName?.Trim() ?? string.Empty;
+                r.ColorId = r.ColorId?.Trim() ?? string.Empty;
+
+                if (r.StyleName == "" || r.PoName == "" || r.ColorId == "")
+                {
+                    AddError(x.Index, r, "Thiếu Style / Tên PO / Màu");
+                    continue;
+                }
+                if (r.SizeBreakdown == null || r.SizeBreakdown.Count == 0)
+                {
+                    AddError(x.Index, r, "Danh sách size không được để trống");
+                    continue;
+                }
+                foreach (var s in r.SizeBreakdown) s.SizeId = s.SizeId?.Trim() ?? string.Empty;
+
+                if (r.SizeBreakdown.Any(s => s.SizeId == ""))
+                    AddError(x.Index, r, "Có size không có mã");
+                if (r.SizeBreakdown.Any(s => s.PlannedQty < 0))
+                    AddError(x.Index, r, "Số lượng không được nhỏ hơn 0");
+                if (r.SizeBreakdown.GroupBy(s => s.SizeId, StringComparer.OrdinalIgnoreCase).Any(g => g.Count() > 1))
+                    AddError(x.Index, r, "Danh sách size bị trùng lặp");
+            }
+
+            // 1b. Suy ra StyleId / PoId từ Style (tên) và Tên PO
+            var nameRows = rows.Where(x => x.Row != null && x.Row.StyleName != "" && x.Row.PoName != "").ToList();
+            var names = await ResolveStyleAndPoNamesAsync(
+                nameRows.Select(x => x.Row.StyleName),
+                nameRows.Select(x => x.Row.PoName));
+
+            foreach (var x in nameRows)
+            {
+                var r = x.Row;
+                if (names.StyleErrors.TryGetValue(r.StyleName, out var styleError))
+                {
+                    AddError(x.Index, r, styleError);
+                    continue;
+                }
+                if (names.PoErrors.TryGetValue(r.PoName, out var poError))
+                {
+                    AddError(x.Index, r, poError);
+                    continue;
+                }
+                r.StyleId = names.StyleIds[r.StyleName];
+                r.PoId = names.PoIds[r.PoName];
+            }
+
+            // Trùng style + po + color trong cùng file (sau khi đã suy ra StyleId / PoId)
+            foreach (var g in rows.Where(x => x.Row != null && x.Row.StyleId != "" && x.Row.PoId != "")
+                                  .GroupBy(x => $"{x.Row.StyleId}|{x.Row.PoId}|{x.Row.ColorId}", StringComparer.OrdinalIgnoreCase)
+                                  .Where(g => g.Count() > 1))
+            {
+                foreach (var x in g.Skip(1))
+                    AddError(x.Index, x.Row, $"Trùng với dòng {g.First().Index} (cùng Style + Tên PO + Màu)");
+            }
+
+            if (errors.Count > 0)
+                return BadRequest(new { success = false, message = "Dữ liệu import không hợp lệ", errors });
+
+            // 2. Tải dữ liệu liên quan (1 lần, lọc theo style/po/color rồi ghép trong bộ nhớ)
+            var styleIds = rows.Select(x => x.Row.StyleId).Distinct().ToList();
+            var poIds = rows.Select(x => x.Row.PoId).Distinct().ToList();
+            var colorIds = rows.Select(x => x.Row.ColorId).Distinct().ToList();
+
+            var allItems = await _context.MesProductionOrderItems
+                .Where(e => styleIds.Contains(e.StyleId) && poIds.Contains(e.PoId) && colorIds.Contains(e.ColorId)
+                         && e.IsActive != false)
+                .ToListAsync();
+
+            var allPlans = await _context.MesFactoryPlans
+                .Where(e => e.IsActive == true
+                         && styleIds.Contains(e.StyleId) && poIds.Contains(e.PoId) && colorIds.Contains(e.ColorId))
+                .ToListAsync();
+
+            var results = new List<object>();
+            var now = DateTime.UtcNow;
+            var updatedBy = string.IsNullOrWhiteSpace(request.CreatedBy) ? null : request.CreatedBy.Trim();
+
+            // 3. Xử lý từng dòng (chỉ thay đổi entity trong bộ nhớ, chưa lưu)
+            foreach (var x in rows)
+            {
+                var r = x.Row;
+                bool Match(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+                                
+                // Lấy plan trước (có thể lọc theo r.VersionId nếu người dùng có truyền)
+                var plans = allPlans
+                    .Where(p => Match(p.StyleId, r.StyleId) && Match(p.PoId, r.PoId) && Match(p.ColorId, r.ColorId)
+                             && (r.VersionId == null || p.VersionId == r.VersionId))
+                    .ToList();
+
+                var planVersionIds = plans.Select(p => p.VersionId).Distinct().ToList();
+                if (planVersionIds.Count == 0)
+                {
+                    AddError(x.Index, r, "Không tìm thấy kế hoạch tương ứng (Mã hàng + PO + Màu)");
+                    continue;
+                }
+                if (planVersionIds.Count > 1)
+                {
+                    AddError(x.Index, r, "Kế hoạch thuộc nhiều version, cần truyền versionId");
+                    continue;
+                }
+                var versionId = planVersionIds[0];
+
+                var items = allItems
+                    .Where(i => Match(i.StyleId, r.StyleId) && Match(i.PoId, r.PoId) && Match(i.ColorId, r.ColorId)
+                             && i.VersionId == versionId)
+                    .ToList();
+                if (items.Count == 0)
+                {
+                    AddError(x.Index, r, "Không tìm thấy đơn hàng tương ứng với version của kế hoạch");
+                    continue;
+                }
+
+                var masterPlan = plans.FirstOrDefault(p => string.IsNullOrEmpty(p.LineNumber));
+                // ... phần còn lại giữ nguyên
+                if (masterPlan == null)
+                {
+                    AddError(x.Index, r, "Không tìm thấy dòng kế hoạch tổng (chưa gán tổ)");
+                    continue;
+                }
+                // size trong file phải nằm trong tập size của đơn hàng (không thêm size mới);
+                // size không có trong đơn hàng mà SL = 0 thì bỏ qua
+                var currentSizes = items.ToDictionary(i => i.SizeId, StringComparer.OrdinalIgnoreCase);
+                var invalidSizes = r.SizeBreakdown
+                    .Where(s => !currentSizes.ContainsKey(s.SizeId) && s.PlannedQty > 0)
+                    .Select(s => s.SizeId)
+                    .ToList();
+                if (invalidSizes.Count > 0)
+                {
+                    AddError(x.Index, r, $"Size không có trong đơn hàng: {string.Join(", ", invalidSizes)}");
+                    continue;
+                }
+                var daGanTong = plans
+                    .Where(p => !string.IsNullOrEmpty(p.LineNumber))
+                    .Sum(p => !string.IsNullOrEmpty(p.OperationCode) ? p.TotalPlannedQty / 2m : p.TotalPlannedQty);
+
+                // Tính tổng mới trên toàn bộ size của đơn hàng (size không có trong file giữ nguyên)
+                var incoming = r.SizeBreakdown
+                    .Where(s => currentSizes.ContainsKey(s.SizeId))
+                    .ToDictionary(s => currentSizes[s.SizeId].SizeId, s => s.PlannedQty, StringComparer.OrdinalIgnoreCase);
+                var newKhTong = items.Sum(i => incoming.TryGetValue(i.SizeId, out var q) ? q : i.PlannedQty);
+
+                if (newKhTong < daGanTong)
+                {
+                    AddError(x.Index, r,
+                        $"Tổng số lượng mới ({newKhTong}) nhỏ hơn số đã phân bổ cho tổ ({daGanTong}). Cần chỉnh lại số lượng phân bổ cho tổ");
+                    continue;
+                }
+
+                var oldKhTong = masterPlan.TotalPlannedQty;
+                foreach (var item in items)
+                {
+                    if (!incoming.TryGetValue(item.SizeId, out var qty)) continue;
+                    item.PlannedQty = qty;
+                    item.UpdatedAt = now;
+                    item.UpdatedBy = updatedBy;
+                }
+
+                var conLaiChuaPhanBo = newKhTong - daGanTong;
+                masterPlan.TotalPlannedQty = newKhTong;
+                masterPlan.IsActive = conLaiChuaPhanBo > 0;
+                masterPlan.UpdatedAt = now;
+                if (updatedBy != null) masterPlan.UpdatedBy = updatedBy;
+
+                results.Add(new
+                {
+                    row = x.Index,
+                    versionId,
+                    styleId = r.StyleId,
+                    poId = r.PoId,
+                    colorId = r.ColorId,
+                    oldKhTong,
+                    khTong = newKhTong,
+                    daGanTong,
+                    conLaiChuaPhanBo
+                });
+            }
+
+            // All-or-nothing: có lỗi thì bỏ toàn bộ thay đổi đang track
+            if (errors.Count > 0)
+            {
+                _context.ChangeTracker.Clear();
+                return BadRequest(new { success = false, message = "Import thất bại, không có dữ liệu nào được lưu", errors });
+            }
+
+            // 4. Lưu trong transaction
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return Ok(new
+                {
+                    success = true,
+                    message = $"Import size thành công {results.Count} đơn hàng",
+                    data = results
+                });
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return StatusCode(500, new { success = false, message = "Lỗi khi lưu dữ liệu: " + ex.Message });
+            }
+        }
+
+        // POST /api/production/production-orders/import-delivery-date
+        // Import ngày giao hàng từ file Excel (FE đã parse). Khớp đơn hàng theo Style (tên) + Tên PO (tất cả version, tất cả màu).
+        // Cập nhật target_delivery_date các dòng ACTIVE của đơn hàng. All-or-nothing.
+        [HttpPost("production-orders/import-delivery-date")]
+        [ProducesResponseType(typeof(object), 200)]
+        public async Task<IActionResult> ImportDeliveryDates([FromBody] ImportDeliveryDateRequest request)
+        {
+            if (request?.Items == null || request.Items.Count == 0)
+                return BadRequest(new { success = false, message = "Danh sách import không được để trống" });
+
+            var errors = new List<object>();
+            void AddError(int row, ImportDeliveryDateRow? r, string message) =>
+                errors.Add(new { row, styleName = r?.StyleName, poName = r?.PoName, message });
+
+            var rows = request.Items
+            .Select((r, i) => new { Row = r, Index = i + 1 })
+            .ToList();
+
+            // 1. Validate payload + chuẩn hoá
+            foreach (var x in rows)
+            {
+            var r = x.Row;
+            if (r == null)
+            {
+                AddError(x.Index, null, "Dòng dữ liệu rỗng");
+                continue;
+            }
+            r.StyleName = r.StyleName?.Trim() ?? string.Empty;
+            r.PoName = r.PoName?.Trim() ?? string.Empty;
+
+            if (r.StyleName == "" || r.PoName == "")
+                AddError(x.Index, r, "Thiếu Style / Tên PO");
+            if (r.NewDeliveryDate == default)
+                AddError(x.Index, r, "Ngày giao hàng không hợp lệ");
+            }
+
+            // 1b. Suy ra StyleId / PoId từ Style (tên) và Tên PO
+            var nameRows = rows.Where(x => x.Row != null && x.Row.StyleName != "" && x.Row.PoName != "").ToList();
+            var names = await ResolveStyleAndPoNamesAsync(
+                nameRows.Select(x => x.Row.StyleName),
+                nameRows.Select(x => x.Row.PoName));
+
+            foreach (var x in nameRows)
+            {
+                var r = x.Row;
+                if (names.StyleErrors.TryGetValue(r.StyleName, out var styleError))
+                {
+                    AddError(x.Index, r, styleError);
+                    continue;
+                }
+                if (names.PoErrors.TryGetValue(r.PoName, out var poError))
+                {
+                    AddError(x.Index, r, poError);
+                    continue;
+                }
+                r.StyleId = names.StyleIds[r.StyleName];
+                r.PoId = names.PoIds[r.PoName];
+            }
+
+            // Trùng style + po trong cùng file (ngày giao có thể mâu thuẫn), kiểm tra sau khi đã suy ra ID
+            foreach (var g in rows.Where(x => x.Row != null && x.Row.StyleId != "" && x.Row.PoId != "")
+                                  .GroupBy(x => $"{x.Row.StyleId}|{x.Row.PoId}", StringComparer.OrdinalIgnoreCase)
+                                  .Where(g => g.Count() > 1))
+            {
+                foreach (var x in g.Skip(1))
+                    AddError(x.Index, x.Row, $"Trùng với dòng {g.First().Index} (cùng Style + Tên PO)");
+            }
+
+            if (errors.Count > 0)
+            return BadRequest(new { success = false, message = "Dữ liệu import không hợp lệ", errors });
+
+            // 2. Tải dữ liệu liên quan (1 lần, lọc theo style/po rồi ghép trong bộ nhớ; gồm mọi version và màu)
+            var styleIds = rows.Select(x => x.Row.StyleId).Distinct().ToList();
+            var poIds = rows.Select(x => x.Row.PoId).Distinct().ToList();
+
+            var allItems = await _context.MesProductionOrderItems
+            .Where(e => styleIds.Contains(e.StyleId) && poIds.Contains(e.PoId)
+                     && e.IsActive != false)
+            .ToListAsync();
+
+            var results = new List<object>();
+            var now = DateTime.UtcNow;
+            var updatedBy = string.IsNullOrWhiteSpace(request.CreatedBy) ? null : request.CreatedBy.Trim();
+            bool Match(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+
+            // 3. Xử lý từng dòng (chỉ thay đổi entity trong bộ nhớ, chưa lưu)
+            foreach (var x in rows)
+            {
+            var r = x.Row;
+            var items = allItems
+                .Where(i => Match(i.StyleId, r.StyleId) && Match(i.PoId, r.PoId))
+                .ToList();
+
+            if (items.Count == 0)
+            {
+                AddError(x.Index, r, "Không tìm thấy đơn hàng tương ứng (Style + Tên PO)");
+                continue;
+            }
+
+            foreach (var item in items)
+            {
+                item.TargetDeliveryDate = r.NewDeliveryDate;
+                item.UpdatedAt = now;
+                item.UpdatedBy = updatedBy;
+            }
+
+            results.Add(new
+            {
+                row = x.Index,
+                styleId = r.StyleId,
+                poId = r.PoId,
+                newDeliveryDate = r.NewDeliveryDate,
+                versionCount = items.Select(i => i.VersionId).Distinct().Count(),
+                updatedRows = items.Count
+            });
+            }
+
+            // All-or-nothing: có lỗi thì bỏ toàn bộ thay đổi đang track
+            if (errors.Count > 0)
+            {
+                _context.ChangeTracker.Clear();
+                return BadRequest(new { success = false, message = "Import thất bại, không có dữ liệu nào được lưu", errors });
+            }
+
+            // 4. Lưu trong transaction
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return Ok(new
+                {
+                    success = true,
+                    message = $"Import ngày giao hàng thành công {results.Count} đơn hàng",
+                    data = results
+                });
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return StatusCode(500, new { success = false, message = "Lỗi khi lưu dữ liệu: " + ex.Message });
+            }
+        }
+
+        // POST /api/production/production-orders/import-po-name
+        // Import đổi tên PO từ file Excel (FE đã parse). Tra Style (tên) -> StyleId, Tên PO cũ -> PoId (helper dùng chung với import size),
+        // áp dụng cho mọi version và màu. Logic đổi tên và ghi po_rename_history giống RenamePo. All-or-nothing.
+        [HttpPost("production-orders/import-po-name")]
+        [ProducesResponseType(typeof(object), 200)]
+        public async Task<IActionResult> ImportPoNames([FromBody] ImportPoNameRequest request)
+        {
+            if (request?.Items == null || request.Items.Count == 0)
+                return BadRequest(new { success = false, message = "Danh sách import không được để trống" });
+
+            var errors = new List<object>();
+            void AddError(int row, ImportPoNameRow? r, string message) =>
+                errors.Add(new { row, styleName = r?.StyleName, oldPoName = r?.OldPoName, newPoName = r?.NewPoName, message });
+
+            var rows = request.Items
+                .Select((r, i) => new { Row = r, Index = i + 1 })
+                .ToList();
+
+            // 1. Validate payload + chuẩn hoá
+            foreach (var x in rows)
+            {
+                var r = x.Row;
+                if (r == null)
+                {
+                    AddError(x.Index, null, "Dòng dữ liệu rỗng");
+                    continue;
+                }
+                r.StyleName = r.StyleName?.Trim() ?? string.Empty;
+                r.OldPoName = r.OldPoName?.Trim() ?? string.Empty;
+                r.NewPoName = r.NewPoName?.Trim() ?? string.Empty;
+
+                if (r.StyleName == "" || r.OldPoName == "")
+                    AddError(x.Index, r, "Thiếu Style / Tên PO cũ");
+                if (r.NewPoName == "")
+                    AddError(x.Index, r, "Tên PO mới không được để trống");
+                else if (r.NewPoName.Length > 100)
+                    AddError(x.Index, r, "Tên PO mới quá dài (tối đa 100 ký tự)");
+            }
+
+            // 1b. Suy ra StyleId / PoId từ Style (tên) và Tên PO cũ
+            var nameRows = rows.Where(x => x.Row != null && x.Row.StyleName != "" && x.Row.OldPoName != "").ToList();
+            var names = await ResolveStyleAndPoNamesAsync(
+                nameRows.Select(x => x.Row.StyleName),
+                nameRows.Select(x => x.Row.OldPoName));
+
+            foreach (var x in nameRows)
+            {
+                var r = x.Row;
+                if (names.StyleErrors.TryGetValue(r.StyleName, out var styleError))
+                {
+                    AddError(x.Index, r, styleError);
+                    continue;
+                }
+                if (names.PoErrors.TryGetValue(r.OldPoName, out var poError))
+                {
+                    AddError(x.Index, r, poError);
+                    continue;
+                }
+                r.StyleId = names.StyleIds[r.StyleName];
+                r.PoId = names.PoIds[r.OldPoName];
+            }
+
+            // Trùng style + po trong cùng file (tên mới có thể mâu thuẫn), kiểm tra sau khi đã suy ra ID
+            foreach (var g in rows.Where(x => x.Row != null && x.Row.StyleId != "" && x.Row.PoId != "")
+                                  .GroupBy(x => $"{x.Row.StyleId}|{x.Row.PoId}", StringComparer.OrdinalIgnoreCase)
+                                  .Where(g => g.Count() > 1))
+            {
+                foreach (var x in g.Skip(1))
+                    AddError(x.Index, x.Row, $"Trùng với dòng {g.First().Index} (cùng Style + Tên PO cũ)");
+            }
+
+            // 1c. Tên PO mới không được trùng với PO khác (mỗi po_id ứng với 1 tên PO)
+            var renameRows = rows.Where(x => x.Row != null && x.Row.PoId != "" && x.Row.NewPoName != "").ToList();
+            var newNames = renameRows.Select(x => x.Row.NewPoName).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            if (newNames.Count > 0)
+            {
+                var salesOrderNameOwners = await _context.SalesOrderHeader
+                    .Where(s => newNames.Contains(s.POName))
+                    .Select(s => new { s.No, s.POName })
+                    .ToListAsync();
+                var poItemNameOwners = await _context.MesProductionOrderItems
+                    .Where(i => i.IsActive != false && newNames.Contains(i.POName))
+                    .Select(i => new { i.PoId, i.POName })
+                    .ToListAsync();
+
+                foreach (var x in renameRows)
+                {
+                    var r = x.Row;
+                    var owners = salesOrderNameOwners
+                        .Where(s => SameName(s.POName, r.NewPoName) && !SameName(s.No, r.PoId))
+                        .Select(s => s.No?.Trim() ?? string.Empty)
+                        .Concat(poItemNameOwners
+                            .Where(p => SameName(p.POName, r.NewPoName) && !SameName(p.PoId, r.PoId))
+                            .Select(p => p.PoId?.Trim() ?? string.Empty))
+                        .Where(v => v != string.Empty)
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+                    if (owners.Count > 0)
+                        AddError(x.Index, r, $"Tên PO mới \"{r.NewPoName}\" đã được dùng cho đơn hàng khác: {string.Join(", ", owners)}");
+                }
+
+                // Trong cùng file: 2 PO khác nhau không được đổi thành cùng 1 tên
+                foreach (var g in renameRows
+                    .GroupBy(x => x.Row.NewPoName, StringComparer.OrdinalIgnoreCase)
+                    .Where(g => g.Select(x => x.Row.PoId).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1))
+                {
+                    foreach (var x in g)
+                        AddError(x.Index, x.Row, $"Tên PO mới \"{x.Row.NewPoName}\" bị trùng cho nhiều đơn hàng khác nhau trong file");
+                }
+            }
+
+            if (errors.Count > 0)
+                return BadRequest(new { success = false, message = "Dữ liệu import không hợp lệ", errors });
+
+            // 2. Tải dữ liệu liên quan (1 lần, lọc theo style/po rồi ghép trong bộ nhớ)
+            var styleIds = rows.Select(x => x.Row.StyleId).Distinct().ToList();
+            var poIds = rows.Select(x => x.Row.PoId).Distinct().ToList();
+
+            var allItems = await _context.MesProductionOrderItems
+            .Where(e => styleIds.Contains(e.StyleId) && poIds.Contains(e.PoId)
+                     && e.IsActive != false)
+            .ToListAsync();
+
+            var results = new List<object>();
+            var now = DateTime.UtcNow;
+            var changedBy = string.IsNullOrWhiteSpace(request.CreatedBy) ? "unknown" : request.CreatedBy.Trim();
+            bool Match(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+
+            // 3. Xử lý từng dòng (chỉ thay đổi entity và thêm lịch sử trong bộ nhớ, chưa lưu)
+            foreach (var x in rows)
+            {
+            var r = x.Row;
+            var items = allItems
+                .Where(i => Match(i.StyleId, r.StyleId) && Match(i.PoId, r.PoId))
+                .ToList();
+
+            if (items.Count == 0)
+            {
+                AddError(x.Index, r, "Không tìm thấy đơn hàng tương ứng (Mã hàng + Mã đơn hàng)");
+                continue;
+            }
+
+            var oldNames = items.Select(i => i.POName).Distinct().ToList();
+            var changedCount = 0;
+
+            foreach (var item in items)
+            {
+                if (string.Equals(item.POName, r.NewPoName, StringComparison.Ordinal))
+                    continue;
+
+                _context.Set<MesPoRenameHistory>().Add(new MesPoRenameHistory
+                {
+                    Id = Guid.NewGuid(),
+                    ItemId = item.Id,
+                    OldPoName = item.POName,
+                    NewPoName = r.NewPoName,
+                    ChangedBy = changedBy,
+                    ChangedAt = now,
+                });
+
+                item.POName = r.NewPoName;
+                item.UpdatedAt = now;
+                item.UpdatedBy = changedBy;
+                changedCount++;
+            }
+
+            results.Add(new
+            {
+                row = x.Index,
+                styleId = r.StyleId,
+                poId = r.PoId,
+                newPoName = r.NewPoName,
+                oldPoNames = oldNames,
+                versionCount = items.Select(i => i.VersionId).Distinct().Count(),
+                updatedRows = changedCount
+            });
+            }
+
+            // All-or-nothing: có lỗi thì bỏ toàn bộ thay đổi đang track
+            if (errors.Count > 0)
+            {
+                _context.ChangeTracker.Clear();
+                return BadRequest(new { success = false, message = "Import thất bại, không có dữ liệu nào được lưu", errors });
+            }
+
+            // 4. Lưu trong transaction
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return Ok(new
+                {
+                    success = true,
+                    message = $"Import đổi tên PO thành công {results.Count} đơn hàng",
+                    data = results
+                });
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return StatusCode(500, new { success = false, message = "Lỗi khi lưu dữ liệu: " + ex.Message });
+            }
+        }
+
         // GET /api/production/workcenters
         // Trả về danh sách xưởng (Work Center) dùng cho dropdown trên FE
         [HttpGet("workcenters")]
@@ -3675,27 +4148,903 @@ namespace EquipManagementAPI.Controllers
         public record SizeQtyDto(string SizeId, decimal PlannedQty);
         // GET /api/production/factory-plans-v2-view
         // Lấy danh sách factory plans + kế hoạch ngày theo xưởng/tổ/style/tháng để hiển thị bảng
-        [HttpGet("factory-plans-v2-view")]
-        public async Task<IActionResult> GetFactoryPlans_V2_View(
-    [FromQuery] string factoryId,
-    [FromQuery] int year,
-    [FromQuery] int month,
-    [FromQuery] int toYear,
-    [FromQuery] int toMonth,
-    [FromQuery] string? lineNumber = null,
-    [FromQuery] string? styleName = null)
+
+        //    [HttpGet("factory-plans-v2-view")]
+        //    public async Task<IActionResult> GetFactoryPlans_V2_View(
+        //[FromQuery] string factoryId,
+        //[FromQuery] int year,
+        //[FromQuery] int month,
+        //[FromQuery] int toYear,
+        //[FromQuery] int toMonth,
+        //[FromQuery] string? lineNumber = null,
+        //[FromQuery] string? styleName = null)
+        //    {
+        //        if (string.IsNullOrWhiteSpace(factoryId))
+        //            return BadRequest(new { success = false, message = "Vui lòng truyền factoryId." });
+        //        if (year <= 0 || toYear <= 0 || month < 1 || month > 12 || toMonth < 1 || toMonth > 12)
+        //            return BadRequest(new { success = false, message = "year và month không hợp lệ." });
+
+        //        var monthStart = new DateOnly(year, month, 1);
+        //        var toMonthEnd = new DateOnly(toYear, toMonth, 1).AddMonths(1).AddDays(-1);
+
+        //        // ---- B1: Lọc plans theo factoryId / lineNumber / styleName ----
+        //        var planQuery = _context.MesFactoryPlans.AsNoTracking()
+        //            .Where(p => p.FactoryId == factoryId && p.IsActive);
+
+        //        if (!string.IsNullOrWhiteSpace(lineNumber))
+        //            planQuery = planQuery.Where(p => p.LineNumber == lineNumber);
+
+        //        if (!string.IsNullOrWhiteSpace(styleName))
+        //        {
+        //            var trimKeyword = styleName.Trim();
+        //            var keyword = _context.Item
+        //                .Where(p => p.Name == trimKeyword)
+        //                .Select(p => p.No)
+        //                .FirstOrDefault();
+        //            if (!string.IsNullOrEmpty(keyword))
+        //            {
+        //                planQuery = planQuery.Where(p => p.StyleId.Contains(keyword));
+        //            }
+        //        }
+
+        //        // ---- TAB KẾ HOẠCH SẢN XUẤT: lọc riêng theo NGÀY SẢN XUẤT (production_start_date/production_end_date),
+        //        // KHÔNG dùng ngày giao hàng như tab Đơn hàng. Chỉ lấy các dòng đã gán tổ (LineNumber) và có khoảng
+        //        // ngày sản xuất giao với kỳ lọc [monthStart, toMonthEnd].
+        //        //var planLinePlans = await planQuery
+        //        //    .Where(p => !string.IsNullOrWhiteSpace(p.LineNumber)
+        //        //             && p.ProductionStartDate != null
+        //        //             && p.ProductionEndDate != null
+        //        //             && p.ProductionStartDate <= toMonthEnd
+        //        //             && p.ProductionEndDate >= monthStart)
+        //        //    .OrderBy(p => p.LineNumber)
+        //        //    .ThenBy(p => p.StyleId)
+        //        //    .ToListAsync();
+
+        //        // Bộ khóa distinct để JOIN — vẫn là IQueryable, chưa gọi DB
+        //        var planKeys = planQuery
+        //            .Select(p => new { p.VersionId, p.FactoryId, p.StyleId, p.PoId, p.ColorId })
+        //            .Distinct();
+
+        //        // JOIN đúng tổ hợp 5 cột thay vì 4 Contains rời rạc
+        //        var filteredGroups = await _context.MesProductionOrderItems
+        //            .AsNoTracking()
+        //            .Where(x => x.FactoryId == factoryId)
+        //            .Join(planKeys,
+        //                x => new { x.VersionId, x.FactoryId, x.StyleId, x.PoId, x.ColorId },
+        //                k => new { k.VersionId, k.FactoryId, k.StyleId, k.PoId, k.ColorId },
+        //                (x, k) => x)
+        //            .GroupBy(x => new { x.VersionId, x.FactoryId, x.StyleId, x.PoId, x.ColorId })
+        //            .Select(g => new
+        //            {
+        //                g.Key.VersionId,
+        //                g.Key.FactoryId,
+        //                g.Key.StyleId,
+        //                g.Key.PoId,
+        //                g.Key.ColorId,
+        //                TargetDeliveryDate = g.Max(x => x.TargetDeliveryDate)
+        //            })
+        //            .Where(g => g.TargetDeliveryDate >= monthStart && g.TargetDeliveryDate <= toMonthEnd)
+        //            .ToListAsync();
+
+        //        // Chỉ return sớm khi CẢ orders (theo ngày giao hàng) VÀ planLines (theo ngày sản xuất) đều rỗng
+        //        if (filteredGroups.Count == 0)
+        //            return Ok(new { success = true, data = new { orders = Array.Empty<object>(), planLines = Array.Empty<object>() } });
+
+        //        var validKeys = filteredGroups
+        //            .Select(g => (g.VersionId, g.FactoryId, g.StyleId, g.PoId, g.ColorId))
+        //            .ToHashSet();
+
+        //        var targetDeliveryMap = filteredGroups.ToDictionary(
+        //            g => (g.VersionId, g.FactoryId, g.StyleId, g.PoId, g.ColorId),
+        //            g => g.TargetDeliveryDate);
+
+        //        //// planLinePlans có thể chứa PO có ngày giao hàng NẰM NGOÀI kỳ lọc (vì giờ lọc theo ngày sản xuất) —
+        //        //// bổ sung targetDeliveryDate cho các tổ hợp này (không giới hạn theo monthStart/toMonthEnd) để FE vẫn
+        //        //// hiển thị đúng ngày giao hàng ở tab Kế hoạch sản xuất thay vì để trống.
+        //        //var planLineComboKeys = planLinePlans
+        //        //    .Select(p => new { p.VersionId, p.FactoryId, p.StyleId, p.PoId, p.ColorId })
+        //        //    .Distinct()
+        //        //    .Where(k => !targetDeliveryMap.ContainsKey((k.VersionId, k.FactoryId, k.StyleId, k.PoId, k.ColorId)))
+        //        //    .ToList();
+
+        //        //if (planLineComboKeys.Count > 0)
+        //        //{
+        //        //    var planLineVersionIds = planLineComboKeys.Select(k => k.VersionId).Distinct().ToList();
+        //        //    var planLineStyleIds = planLineComboKeys.Select(k => k.StyleId).Distinct().ToList();
+        //        //    var planLinePoIds = planLineComboKeys.Select(k => k.PoId).Distinct().ToList();
+        //        //    var planLineColorIds = planLineComboKeys.Select(k => k.ColorId).Distinct().ToList();
+
+        //        //    var extraDeliveryGroups = await _context.MesProductionOrderItems
+        //        //        .AsNoTracking()
+        //        //        .Where(x => x.FactoryId == factoryId
+        //        //                 && planLineVersionIds.Contains(x.VersionId)
+        //        //                 && planLineStyleIds.Contains(x.StyleId)
+        //        //                 && planLinePoIds.Contains(x.PoId)
+        //        //                 && planLineColorIds.Contains(x.ColorId))
+        //        //        .GroupBy(x => new { x.VersionId, x.FactoryId, x.StyleId, x.PoId, x.ColorId })
+        //        //        .Select(g => new
+        //        //        {
+        //        //            g.Key.VersionId,
+        //        //            g.Key.FactoryId,
+        //        //            g.Key.StyleId,
+        //        //            g.Key.PoId,
+        //        //            g.Key.ColorId,
+        //        //            TargetDeliveryDate = g.Max(x => x.TargetDeliveryDate)
+        //        //        })
+        //        //        .ToListAsync();
+
+        //        //    foreach (var g in extraDeliveryGroups)
+        //        //    {
+        //        //        var comboKey = (g.VersionId, g.FactoryId, g.StyleId, g.PoId, g.ColorId);
+        //        //        if (!targetDeliveryMap.ContainsKey(comboKey))
+        //        //            targetDeliveryMap[comboKey] = g.TargetDeliveryDate;
+        //        //    }
+        //        //}
+
+        //        var groupVersionIds = filteredGroups.Select(g => g.VersionId).Distinct().ToList();
+        //        var groupStyleIds = filteredGroups.Select(g => g.StyleId).Distinct().ToList();
+        //        var groupPoIds = filteredGroups.Select(g => g.PoId).Distinct().ToList();
+        //        var groupColorIds = filteredGroups.Select(g => g.ColorId).Distinct().ToList();
+
+        //        var candidatePlans = await planQuery
+        //            .AsNoTracking()
+        //            .Where(p => groupVersionIds.Contains(p.VersionId)
+        //                     && groupStyleIds.Contains(p.StyleId)
+        //                     && groupPoIds.Contains(p.PoId)
+        //                     && groupColorIds.Contains(p.ColorId))
+        //            .OrderBy(p => p.LineNumber)
+        //            .ThenBy(p => p.StyleId)
+        //            .ToListAsync();
+
+        //        // Lọc chính xác lại theo tổ hợp 5 cột (Contains riêng lẻ ở trên có thể match chéo giữa các plan khác nhau)
+        //        var plans = candidatePlans
+        //            .Where(p => validKeys.Contains((p.VersionId, p.FactoryId, p.StyleId, p.PoId, p.ColorId)))
+        //            .ToList();
+
+        //        if (plans.Count == 0)
+        //            return Ok(new { success = true, data = new { orders = Array.Empty<object>(), planLines = Array.Empty<object>() } });
+        //        var planLinePlans = plans
+        //            .Where(p => !string.IsNullOrWhiteSpace(p.LineNumber))
+        //            .ToList();
+        //        // Các id list giờ suy ra từ "plans" đã lọc (tập nhỏ hơn nhiều so với allPlans trước đây)
+        //        var versionIds = plans.Select(p => p.VersionId).Distinct().ToList();
+        //        var styleIds = plans.Select(p => p.StyleId).Distinct().ToList();
+        //        var poIds = plans.Select(p => p.PoId).Distinct().ToList();
+        //        var colorIds = plans.Select(p => p.ColorId).Distinct().ToList();
+
+        //        // ---- Lookup StyleName từ bảng Item (No -> Name) ----
+        //        var planStyleIds = plans.Select(p => p.StyleId).Concat(planLinePlans.Select(p => p.StyleId)).Distinct().ToList();
+        //        var itemNameMap = await _context.Item
+        //            .Where(i => planStyleIds.Contains(i.No))
+        //            .Select(i => new { i.No, i.Name })
+        //            .ToDictionaryAsync(i => i.No, i => i.Name ?? string.Empty);
+
+        //        // ---- Lookup PoName từ bảng Sales Order Header ----
+        //        var planPoIds = plans.Select(p => p.PoId).Concat(planLinePlans.Select(p => p.PoId)).Distinct().ToList();
+        //        // Bước 1: Lấy PoName từ MesProductionOrderItems trước (nguồn ưu tiên)
+        //        var mesPoNameMap = await _context.MesProductionOrderItems
+        //            .Where(i => planPoIds.Contains(i.PoId) && !string.IsNullOrEmpty(i.POName))
+        //            .GroupBy(i => i.PoId)
+        //            .Select(g => new { PoId = g.Key, POName = g.First().POName })
+        //            .ToDictionaryAsync(x => x.PoId, x => x.POName ?? string.Empty);
+
+        //        var salesPoNameMap = await _context.SalesOrderHeader
+        //            .Where(s => planPoIds.Contains(s.No))
+        //            .Select(s => new { s.No, s.POName })
+        //            .ToDictionaryAsync(s => s.No, s => s.POName ?? string.Empty);
+
+        //        var poNameMap = new Dictionary<string, string>();
+        //        foreach (var poId in planPoIds)
+        //        {
+        //            if (mesPoNameMap.TryGetValue(poId, out var mesName) && !string.IsNullOrWhiteSpace(mesName))
+        //            {
+        //                poNameMap[poId] = mesName;
+        //            }
+        //            else if (salesPoNameMap.TryGetValue(poId, out var salesName))
+        //            {
+        //                poNameMap[poId] = salesName;
+        //            }
+        //            else
+        //            {
+        //                poNameMap[poId] = string.Empty;
+        //            }
+        //        }
+
+        //        var missingPoIds = planPoIds
+        //            .Where(id => !poNameMap.TryGetValue(id, out var name) || string.IsNullOrWhiteSpace(name))
+        //            .ToList();
+
+        //        // Bước 3: nếu còn thiếu, tìm bổ sung ở production_order_items
+        //        if (missingPoIds.Count > 0)
+        //        {
+        //            var fallbackMap = await _context.MesProductionOrderItems
+        //                .Where(i => missingPoIds.Contains(i.PoId) && !string.IsNullOrEmpty(i.POName))
+        //                .GroupBy(i => i.PoId)
+        //                // 1 PoId có thể có nhiều dòng item -> lấy 1 tên đại diện (mới nhất theo CreatedAt, hoặc First tùy nghiệp vụ)
+        //                .Select(g => new { PoId = g.Key, POName = g.OrderByDescending(x => x.CreatedAt).Select(x => x.POName).First() })
+        //                .ToDictionaryAsync(x => x.PoId, x => x.POName ?? string.Empty);
+
+        //            // Bước 4: merge vào map chính (ghi đè/bổ sung)
+        //            foreach (var kv in fallbackMap)
+        //            {
+        //                poNameMap[kv.Key] = kv.Value;
+        //            }
+        //        }
+        //        var planTeamIds = plans.Select(p => p.LineNumber).Concat(planLinePlans.Select(p => p.LineNumber)).Distinct().ToList();
+        //        var teamIdMap = await _context.workShift
+        //            .Where(s => planTeamIds.Contains(s.Code))
+        //            .Select(s => new { s.Code, s.Name })
+        //            .ToDictionaryAsync(s => s.Code, s => s.Name ?? string.Empty);
+        //        // ---- Lookup teamTotalQty (từng ngày) — chỉ cần cho các dòng ĐÃ có tổ ----
+        //        var monthStartDt = monthStart.ToDateTime(TimeOnly.MinValue);
+        //        var toMonthEndDt = toMonthEnd.ToDateTime(TimeOnly.MaxValue);
+
+        //        // Dùng planLinePlans (đã lọc theo ngày sản xuất) thay vì plans (lọc theo ngày giao hàng)
+        //        var planIdsWithTeam = plans
+        //            .Select(p => p.Id)
+        //            .ToList();
+
+        //        var planLinesRaw = await _context.MesFactoryPlanLines.AsNoTracking()
+        //            .Where(l => planIdsWithTeam.Contains(l.FactoryPlanId)
+        //                     && l.WorkDate >= monthStartDt
+        //                     && l.WorkDate <= toMonthEndDt)
+        //            .ToListAsync();
+
+        //        var teamTotalQtyMap = planLinesRaw
+        //            .GroupBy(l => l.FactoryPlanId)
+        //            .ToDictionary(
+        //                g => g.Key,
+        //                g => g
+        //                    .GroupBy(l => l.WorkDate.Date)              // gộp nếu trùng ngày (tránh lỗi duplicate key)
+        //                    .ToDictionary(
+        //                        dg => dg.Key.ToString("yyyy-MM-dd"),
+        //                        dg => dg.Sum(x => x.PlannedQty)
+        //                    )
+        //            );
+        //        // ---- Lookup PassOutput theo từng ngày (Thực hiện) — dựa theo PlanId ----
+        //        var qlclByPlanRaw = await _context.qualityManagementSessions.AsNoTracking()
+        //         .Where(q => q.PlanId != null
+        //                  && planIdsWithTeam.Contains(q.PlanId.Value)
+        //                  && q.InspectionDate >= monthStartDt
+        //                  && q.InspectionDate <= toMonthEndDt && q.Status == 1 && q.OperationType == "1")
+        //         .Select(q => new { q.PlanId, q.InspectionDate, q.PassOutputQuantity })
+        //         .ToListAsync();
+
+        //        var actualQtyByDateMap = qlclByPlanRaw
+        //            .GroupBy(q => q.PlanId)
+        //            .ToDictionary(
+        //                g => g.Key,
+        //                g => g
+        //                    .GroupBy(x => x.InspectionDate.Date)   // gộp nếu trùng ngày
+        //                    .ToDictionary(
+        //                        dg => dg.Key.ToString("yyyy-MM-dd"),
+        //                        dg => dg.Sum(x => x.PassOutputQuantity)
+        //                    )
+        //            );
+        //        var today = DateTime.Today;
+        //        // planned_qty tại work_date = hôm nay, cho TẤT CẢ các dòng đã gán tổ
+        //        //    (không giới hạn theo khoảng monthStart..toMonthEnd, vì "hôm nay" có thể
+        //        //    nằm ngoài khoảng filter đang xem)
+        //        var todayPlannedQtyMap = await _context.MesFactoryPlanLines
+        //            .Where(l => planIdsWithTeam.Contains(l.FactoryPlanId) && l.WorkDate.Date == today)
+        //            .GroupBy(l => l.FactoryPlanId)
+        //            .Select(g => new { FactoryPlanId = g.Key, Qty = g.Sum(x => x.PlannedQty) })
+        //            .ToDictionaryAsync(x => x.FactoryPlanId, x => x.Qty);
+
+        //        //Bỏ active=true
+        //        var mergedSourcePlans = await _context.MesFactoryPlans
+        //        .Where(s => s.ParentPlanId != null
+        //                 && planIdsWithTeam.Contains(s.ParentPlanId.Value)
+        //                 && s.LineNumber != null)      // <-- THÊM điều kiện này
+        //        .ToListAsync();
+
+        //        var mergedSourceByParentId = mergedSourcePlans
+        //            .GroupBy(s => s.ParentPlanId!.Value)
+        //            .ToDictionary(g => g.Key, g => g.ToList());
+
+        //        var sourcePoIds = mergedSourcePlans
+        //        .Select(s => s.PoId)
+        //        .Distinct()
+        //        .Where(id => !poNameMap.ContainsKey(id) || string.IsNullOrWhiteSpace(poNameMap[id]))
+        //        .ToList();
+
+        //        if (sourcePoIds.Count > 0)
+        //        {
+        //            var sourcePoNameFromHeader = await _context.SalesOrderHeader
+        //                .Where(s => sourcePoIds.Contains(s.No))
+        //                .Select(s => new { s.No, s.POName })
+        //                .ToDictionaryAsync(s => s.No, s => s.POName ?? string.Empty);
+
+        //            foreach (var kv in sourcePoNameFromHeader)
+        //                poNameMap[kv.Key] = kv.Value;
+
+        //            var stillMissing = sourcePoIds
+        //                .Where(id => !poNameMap.TryGetValue(id, out var n) || string.IsNullOrWhiteSpace(n))
+        //                .ToList();
+
+        //            if (stillMissing.Count > 0)
+        //            {
+        //                var fallback = await _context.MesProductionOrderItems
+        //                    .Where(i => stillMissing.Contains(i.PoId) && !string.IsNullOrEmpty(i.POName))
+        //                    .GroupBy(i => i.PoId)
+        //                    .Select(g => new
+        //                    {
+        //                        PoId = g.Key,
+        //                        POName = g.OrderByDescending(x => x.CreatedAt).Select(x => x.POName).First()
+        //                    })
+        //                    .ToDictionaryAsync(x => x.PoId, x => x.POName ?? string.Empty);
+
+        //                foreach (var kv in fallback)
+        //                    poNameMap[kv.Key] = kv.Value;
+        //            }
+        //        }
+
+        //        // =========================================================
+        //        // Lookup planned_qty theo NGÀY cho từng dòng PO GỐC đã gộp (MesFactoryPlanLines)
+        //        // Cùng khoảng [monthStart, toMonthEnd] như teamTotalQtyMap để nhất quán dữ liệu hiển thị.
+        //        // =========================================================
+        //        var mergedSourcePlanIds = mergedSourcePlans.Select(s => s.Id).ToList();
+
+        //        var mergedSourceLinesRaw = mergedSourcePlanIds.Count > 0
+        //            ? await _context.MesFactoryPlanLines
+        //                .Where(l => mergedSourcePlanIds.Contains(l.FactoryPlanId)
+        //                         && l.WorkDate >= monthStartDt
+        //                         && l.WorkDate <= toMonthEndDt)
+        //                .ToListAsync()
+        //            : new List<MesFactoryPlanLine>();
+
+        //        var mergedSourceDailyQtyMap = mergedSourceLinesRaw
+        //            .GroupBy(l => l.FactoryPlanId)
+        //            .ToDictionary(
+        //                g => g.Key,
+        //                g => g
+        //                    .GroupBy(l => l.WorkDate.Date)          // gộp nếu trùng ngày
+        //                    .ToDictionary(
+        //                        dg => dg.Key.ToString("yyyy-MM-dd"),
+        //                        dg => dg.Sum(x => x.PlannedQty)
+        //                    )
+        //            );
+        //        // =========================================================
+        //        // Lookup Actual (PassOutput) theo NGÀY cho từng dòng PO GỐC đã gộp
+        //        // (tương tự actualQtyByDateMap nhưng áp dụng cho mergedSourcePlanIds thay vì planIdsWithTeam)
+        //        // =========================================================
+        //        var mergedSourceQlclRaw = await _context.qualityManagementSessions
+        //        .Where(q => q.PlanId != null
+        //                 && mergedSourcePlanIds.Contains(q.PlanId.Value)
+        //                 && q.InspectionDate >= monthStartDt && q.Status == 0
+        //                 && q.InspectionDate <= toMonthEndDt)
+        //        .Select(q => new
+        //        {
+        //            PlanId = q.PlanId.Value,
+        //            q.InspectionDate,
+        //            q.PassOutputQuantity
+        //        })
+        //        .ToListAsync();
+
+        //        var mergedSourceActualByDateMap = mergedSourceQlclRaw
+        //            .GroupBy(q => q.PlanId)
+        //            .ToDictionary(
+        //                g => g.Key,
+        //                g => g
+        //                    .GroupBy(x => x.InspectionDate.Date)
+        //                    .ToDictionary(
+        //                        dg => dg.Key.ToString("yyyy-MM-dd"),
+        //                        dg => dg.Sum(x => x.PassOutputQuantity)
+        //                    )
+        //            );
+        //        // Helper: build danh sách PO gốc đã gộp cho 1 dòng factory_plan hiện tại
+        //        List<object> ResolveMergedFromPos(Guid planId)
+        //        {
+        //            if (!mergedSourceByParentId.TryGetValue(planId, out var sources))
+        //                return new List<object>();
+
+        //            return sources
+        //                .OrderBy(s => s.PoId)
+        //                .Select(s => new
+        //                {
+        //                    factoryPlanId = s.Id,
+        //                    poId = s.PoId,
+        //                    poName = poNameMap.TryGetValue(s.PoId, out var pn) ? pn : string.Empty,
+        //                    planCode = s.PlanCode,
+        //                    lineNumber = s.LineNumber,
+        //                    operationCode = s.OperationCode,
+        //                    totalPlannedQty = s.TotalPlannedQty,
+        //                    status = s.Status,       // "merged_source"
+        //                    mergedAt = s.MergedAt,
+        //                    mergedBy = s.MergedBy,
+
+        //                    // ===== MỚI: KH theo từng ngày (work_date) của dòng PO gốc này =====
+        //                    dailyPlannedQty = mergedSourceDailyQtyMap.TryGetValue(s.Id, out var qtyByDate)
+        //                        ? qtyByDate
+        //                        : new Dictionary<string, int>(),
+        //                    // ===== MỚI: actual theo ngày của PO gốc =====
+        //                    dailyActualQty = mergedSourceActualByDateMap.TryGetValue(s.Id, out var actualByDate)
+        //                        ? actualByDate
+        //                        : new Dictionary<string, int>(),
+
+        //                    // Cờ để FE biết PO gốc này có dữ liệu thực hiện hay không -> hiển thị badge cảnh báo nếu cần
+        //                    hasActualData = mergedSourceActualByDateMap.ContainsKey(s.Id),
+        //                })
+        //                .ToList<object>();
+        //        }
+
+        //        var todayEndDt = DateTime.Today.AddDays(1).AddTicks(-1); // 23:59:59.999... hôm nay
+
+        //        // Mở rộng style/color thêm từ planLinePlans để actualQtyMap phủ đủ cho tab Kế hoạch sản xuất
+        //        var allStyleIdsForActual = styleIds.Concat(planLinePlans.Select(p => p.StyleId)).Distinct().ToList();
+        //        var allColorIdsForActual = colorIds.Concat(planLinePlans.Select(p => p.ColorId)).Distinct().ToList();
+
+        //        var qlclRaw = await _context.qualityManagementSessions
+        //            .Where(q => allStyleIdsForActual.Contains(q.ItemNo)
+        //                     && allColorIdsForActual.Contains(q.ColorNo)
+        //                     && q.InspectionDate <= todayEndDt
+        //                     && planTeamIds.Contains(q.WorkShiftCode) && q.WorkCenterCode == factoryId && q.Status == 1)
+        //            .Select(q => new { q.WorkShiftCode, q.ItemNo, q.ColorNo, q.PassOutputQuantity })
+        //            .ToListAsync();
+
+        //        var actualQtyMap = qlclRaw
+        //            .GroupBy(q => (WorkShift: q.WorkShiftCode, StyleId: q.ItemNo, ColorId: q.ColorNo))
+        //            .ToDictionary(g => g.Key, g => g.Sum(x => x.PassOutputQuantity));
+
+        //        // ---- Lookup Đơn giá CM: lấy giá còn hiệu lực trong khoảng [monthStart, toMonthEnd] ----
+        //        var allCmPrices = await _context.StyleCmPrice.AsNoTracking()
+        //            .Where(c => planStyleIds.Contains(c.StyleId) && c.IsActive == true)
+        //            .ToListAsync();
+
+        //        var cmPriceByStyle = allCmPrices
+        //            .GroupBy(c => c.StyleId, StringComparer.OrdinalIgnoreCase)
+        //            .Select(g =>
+        //            {
+        //                var picked = g
+        //                    .Where(c => c.EffectiveDate <= toMonthEndDt)
+        //                    .OrderByDescending(c => c.EffectiveDate)
+        //                     .ThenByDescending(c => c.CreatedAt)
+        //                    .FirstOrDefault();
+        //                return new { StyleId = g.Key, Price = picked };
+        //            })
+        //            .Where(x => x.Price != null)
+        //            .ToDictionary(x => x.StyleId, x => x.Price!, StringComparer.OrdinalIgnoreCase);
+
+        //        var cmPriceIds = cmPriceByStyle.Values.Select(c => c.Id).ToList();
+
+        //        var cmSplits = await _context.StyleCmSplits.AsNoTracking()
+        //            .Where(s => cmPriceIds.Contains(s.StyleCmPriceId))
+        //            .ToListAsync();
+
+        //        var splitsByCmPriceId = cmSplits
+        //            .GroupBy(s => s.StyleCmPriceId)
+        //            .ToDictionary(g => g.Key, g => g.ToList());
+
+        //        // Hàm helper: lấy đơn giá CM đã resolve (ưu tiên theo operationCode nếu có split khớp)
+        //        object? ResolveCmPrice(string styleId, string? operationCode)
+        //        {
+        //            if (!cmPriceByStyle.TryGetValue(styleId, out var cmPrice)) return null;
+        //            splitsByCmPriceId.TryGetValue(cmPrice.Id, out var splitsForThisPrice);
+        //            var matchedSplit = splitsForThisPrice?.FirstOrDefault(s => s.OperationCode == operationCode);
+        //            return new
+        //            {
+        //                styleId = cmPrice.StyleId,
+        //                price = matchedSplit?.SplitPrice ?? cmPrice.CmPrice,
+        //                currency = cmPrice.Currency,
+        //                effectiveDate = cmPrice.EffectiveDate,
+        //                operationCode = operationCode,
+        //                operationName = matchedSplit?.OperationName,
+        //            };
+        //        }
+
+        //        // =========================================================
+        //        // TAB ĐƠN HÀNG: gộp theo VersionId + StyleId + PoId + ColorId
+        //        // =========================================================
+        //        var rawItems = await _context.MesProductionOrderItems
+        //         .Where(x => styleIds.Contains(x.StyleId)
+        //                  && poIds.Contains(x.PoId)
+        //                  && colorIds.Contains(x.ColorId) && x.FactoryId == factoryId && x.IsActive == true)
+        //         .Select(x => new { x.StyleId, x.PoId, x.ColorId, x.SizeId, x.PlannedQty, x.VersionId })
+        //         .ToListAsync();
+
+        //        var sizeIdDict = rawItems
+        //        .GroupBy(x => (x.StyleId, x.PoId, x.ColorId, x.VersionId))
+        //        .ToDictionary(
+        //            g => g.Key,
+        //            g => g
+        //                .GroupBy(x => x.SizeId)
+        //                .Select(sg => new SizeQtyDto(sg.Key, sg.Sum(x => x.PlannedQty)))
+        //                .ToList()
+        //        );
+        //        // ---- Precompute thông tin nhóm để phát hiện "đã tách" (cùng group key với orders) ----
+        //        var groupedForSplit = plans
+        //            .GroupBy(p => new { p.VersionId, p.StyleId, p.PoId, p.ColorId })
+        //            .ToDictionary(
+        //                g => g.Key,
+        //                g => new
+        //                {
+        //                    AssignedCount = g.Count(p => !string.IsNullOrWhiteSpace(p.LineNumber)),
+        //                    HasGoc = g.Any(p => string.IsNullOrWhiteSpace(p.LineNumber)),
+        //                    KhTongGoc = g.Where(p => string.IsNullOrWhiteSpace(p.LineNumber))
+        //                                 .Select(p => (int?)p.TotalPlannedQty)
+        //                                 .DefaultIfEmpty(null)
+        //                                 .Max(),
+        //                });
+        //        var orders = plans
+        //            .GroupBy(p => new { p.VersionId, p.StyleId, p.PoId, p.ColorId })
+        //            .Select(g =>
+        //            {
+        //                var first = g.First();
+        //                var resolvedStyleName = itemNameMap.TryGetValue(first.StyleId, out var sName) ? sName : string.Empty;
+        //                var resolvedPoName = poNameMap.TryGetValue(first.PoId, out var pName) ? pName : string.Empty;
+        //                var key = (first.VersionId, first.FactoryId, first.StyleId, first.PoId, first.ColorId);
+        //                var resolvedTargetDeliveryDate = targetDeliveryMap.TryGetValue(key, out var tDate) ? tDate : (DateOnly?)null;
+        //                // Chỉ lấy các dòng có LineNumber == null (đại diện KH tổng gốc)
+        //                var dongGoc = g.Where(p => string.IsNullOrWhiteSpace(p.LineNumber)).ToList();
+
+        //                // Chỉ lấy các dòng đã gán tổ
+        //                var dongDaGan = g.Where(p => !string.IsNullOrWhiteSpace(p.LineNumber)).ToList();
+
+        //                var sizeKey = (first.StyleId, first.PoId, first.ColorId, first.VersionId);
+        //                var resolvedSizeQtyList = sizeIdDict.TryGetValue(sizeKey, out var sizeQtyList)
+        //                    ? sizeQtyList
+        //                    : new List<SizeQtyDto>();
+
+        //                var khTong = dongGoc.Count > 0
+        //        ? dongGoc.Max(p => p.TotalPlannedQty)   // dùng Max thay vì Sum để tránh cộng dồn nếu có dòng gốc trùng do bug dữ liệu
+        //        : dongDaGan
+        //            .GroupBy(p => p.OperationCode, StringComparer.OrdinalIgnoreCase)
+        //            .Select(gr => gr.Sum(p => p.TotalPlannedQty))
+        //            .DefaultIfEmpty(0)
+        //            .Max();
+        //                var conLaiChuaPhanBo = dongGoc.Sum(p => p.TotalPlannedQty); // giữ nguyên nếu chỉ có đúng 1 dòng gốc
+        //                                                                            //        var daPhanBo = khTong - conLaiChuaPhanBo;
+        //                string trangThai;
+        //                if (dongDaGan.Count > 0)
+        //                {
+        //                    // Đã có ít nhất 1 dòng được gán tổ => coi là đã phân bổ,
+        //                    // bất kể daPhanBo tính ra có bằng 0 hay không (tránh sai do bug dữ liệu)
+        //                    trangThai = "da_phan_bo";
+        //                }
+        //                else
+        //                {
+        //                    trangThai = "chua_phan_to";
+        //                }
+
+
+        //                var danhSachToDaGan = g
+        //                    .Where(p => !string.IsNullOrWhiteSpace(p.LineNumber))
+        //                    .Select(p => new
+        //                    {
+        //                        factoryPlanId = p.Id,
+        //                        lineNumber = p.LineNumber,
+        //                        operationCode = p.OperationCode,
+        //                        soLuong = p.TotalPlannedQty,
+        //                        cmPrice = ResolveCmPrice(p.StyleId, p.OperationCode),
+        //                    })
+        //                    .ToList();
+
+        //                return new
+        //                {
+        //                    id = first.Id,
+        //                    versionId = first.VersionId,
+        //                    styleId = first.StyleId,
+        //                    styleName = resolvedStyleName,
+        //                    poId = first.PoId,
+        //                    poName = resolvedPoName,
+        //                    colorId = first.ColorId,
+        //                    sizeIds = resolvedSizeQtyList.Select(x => new { sizeId = x.SizeId, plannedQty = x.PlannedQty }).ToList(),
+        //                    colorName = first.ColorId,
+        //                    targetDeliveryDate = resolvedTargetDeliveryDate?.ToString("dd-MM-yyyy") ?? string.Empty,
+        //                    khTong,
+        //                    conLaiChuaPhanBo,
+        //                    trangThai,
+        //                    danhSachToDaGan,
+        //                    cmPrice = ResolveCmPrice(first.StyleId, null), // giá tổng hiển thị ở header dòng
+        //                    status = first.Status,
+        //                };
+        //            })
+        //            .OrderBy(o => o.styleId)
+        //            .ThenBy(o => o.poId)
+        //            .ToList();
+
+        //        // =========================================================
+        //        // TAB KẾ HOẠCH: chỉ các dòng ĐÃ có tổ, kèm lịch theo ngày
+        //        // =========================================================
+        //        // ---- Lookup các plan CHA (PO gốc trước khi tách) cho các dòng đã gán tổ có ParentPlanId ----
+        //        var parentPlanIds = planLinePlans
+        //            .Where(p => p.ParentPlanId != null)
+        //            .Select(p => p.ParentPlanId!.Value)
+        //            .Distinct()
+        //            .ToList();
+        //        //Bỏ isactive=true
+        //        var parentPlansMap = parentPlanIds.Count > 0
+        //            ? await _context.MesFactoryPlans
+        //                .Where(pp => parentPlanIds.Contains(pp.Id))
+        //                .ToDictionaryAsync(pp => pp.Id)
+        //            : new Dictionary<Guid, MesFactoryPlan>();
+
+        //        // Bổ sung PoName / StyleName cho PO gốc (phòng trường hợp PoId/StyleId gốc chưa có trong map hiện tại)
+        //        var parentPoIds = parentPlansMap.Values
+        //            .Select(pp => pp.PoId)
+        //            .Distinct()
+        //            .Where(id => !poNameMap.ContainsKey(id) || string.IsNullOrWhiteSpace(poNameMap[id]))
+        //            .ToList();
+
+        //        if (parentPoIds.Count > 0)
+        //        {
+        //            var parentPoNameFromHeader = await _context.SalesOrderHeader
+        //                .Where(s => parentPoIds.Contains(s.No))
+        //                .Select(s => new { s.No, s.POName })
+        //                .ToDictionaryAsync(s => s.No, s => s.POName ?? string.Empty);
+
+        //            foreach (var kv in parentPoNameFromHeader)
+        //                poNameMap[kv.Key] = kv.Value;
+
+        //            var stillMissingParentPo = parentPoIds
+        //                .Where(id => !poNameMap.TryGetValue(id, out var n) || string.IsNullOrWhiteSpace(n))
+        //                .ToList();
+
+        //            if (stillMissingParentPo.Count > 0)
+        //            {
+        //                var fallback = await _context.MesProductionOrderItems
+        //                    .Where(i => stillMissingParentPo.Contains(i.PoId) && !string.IsNullOrEmpty(i.POName))
+        //                    .GroupBy(i => i.PoId)
+        //                    .Select(g => new
+        //                    {
+        //                        PoId = g.Key,
+        //                        POName = g.OrderByDescending(x => x.CreatedAt).Select(x => x.POName).First()
+        //                    })
+        //                    .ToDictionaryAsync(x => x.PoId, x => x.POName ?? string.Empty);
+
+        //                foreach (var kv in fallback)
+        //                    poNameMap[kv.Key] = kv.Value;
+        //            }
+        //        }
+
+        //        var parentStyleIds = parentPlansMap.Values
+        //            .Select(pp => pp.StyleId)
+        //            .Distinct()
+        //            .Where(id => !itemNameMap.ContainsKey(id))
+        //            .ToList();
+
+        //        if (parentStyleIds.Count > 0)
+        //        {
+        //            var parentItemNames = await _context.Item
+        //                .Where(i => parentStyleIds.Contains(i.No))
+        //                .Select(i => new { i.No, i.Name })
+        //                .ToDictionaryAsync(i => i.No, i => i.Name ?? string.Empty);
+
+        //            foreach (var kv in parentItemNames)
+        //                itemNameMap[kv.Key] = kv.Value;
+        //        }
+
+        //        // =========================================================
+        //        // Lookup planned_qty & actual theo NGÀY cho PO GỐC (trước khi tách) — dùng cho splitFromPo
+        //        // Cùng khoảng [monthStart, toMonthEnd] để nhất quán với mergedSource...
+        //        // =========================================================
+        //        var parentPlanLinesRaw = parentPlanIds.Count > 0
+        //            ? await _context.MesFactoryPlanLines
+        //                .Where(l => parentPlanIds.Contains(l.FactoryPlanId)
+        //                         && l.WorkDate >= monthStartDt
+        //                         && l.WorkDate <= toMonthEndDt)
+        //                .ToListAsync()
+        //            : new List<MesFactoryPlanLine>();
+
+        //        var parentPlanDailyQtyMap = parentPlanLinesRaw
+        //            .GroupBy(l => l.FactoryPlanId)
+        //            .ToDictionary(
+        //                g => g.Key,
+        //                g => g
+        //                    .GroupBy(l => l.WorkDate.Date)
+        //                    .ToDictionary(
+        //                        dg => dg.Key.ToString("yyyy-MM-dd"),
+        //                        dg => dg.Sum(x => x.PlannedQty)
+        //                    )
+        //            );
+
+        //        var parentPlanQlclRaw = await _context.qualityManagementSessions
+        //            .Where(q => q.PlanId != null
+        //                     && parentPlanIds.Contains(q.PlanId.Value)
+        //                     && q.InspectionDate >= monthStartDt
+        //                     && q.InspectionDate <= toMonthEndDt && q.Status == 0)
+        //            .Select(q => new { PlanId = q.PlanId.Value, q.InspectionDate, q.PassOutputQuantity })
+        //            .ToListAsync();
+
+        //        var parentPlanActualByDateMap = parentPlanQlclRaw
+        //            .GroupBy(q => q.PlanId)
+        //            .ToDictionary(
+        //                g => g.Key,
+        //                g => g
+        //                    .GroupBy(x => x.InspectionDate.Date)
+        //                    .ToDictionary(
+        //                        dg => dg.Key.ToString("yyyy-MM-dd"),
+        //                        dg => dg.Sum(x => x.PassOutputQuantity)
+        //                    )
+        //            );
+
+        //        // Đếm số dòng (tổ) đã được tách ra từ cùng 1 plan cha -> dùng cho soDongDaTach
+        //        var splitSiblingCountMap = planLinePlans
+        //            .Where(p => p.ParentPlanId != null)
+        //            .GroupBy(p => p.ParentPlanId!.Value)
+        //            .ToDictionary(g => g.Key, g => g.Count());
+
+        //        var planLines = planLinePlans
+        //            .Select(p =>
+        //            {
+        //                var resolvedStyleName = itemNameMap.TryGetValue(p.StyleId, out var sName) ? sName : string.Empty;
+        //                var resolvedPoName = poNameMap.TryGetValue(p.PoId, out var pName) ? pName : string.Empty;
+
+        //                var key = (p.VersionId, p.FactoryId, p.StyleId, p.PoId, p.ColorId);
+        //                var resolvedTargetDeliveryDate = targetDeliveryMap.TryGetValue(key, out var tDate) ? tDate : (DateOnly?)null;
+        //                var resolvedTeamTotalQty = teamTotalQtyMap.TryGetValue(p.Id, out var qtyByDate)
+        //                    ? qtyByDate
+        //                    : new Dictionary<string, int>();
+        //                // === NEW: PassOutput theo ngày (Thực hiện) ===
+        //                var resolvedActualQtyByDate = actualQtyByDateMap.TryGetValue(p.Id, out var actualByDate)
+        //                    ? actualByDate
+        //                    : new Dictionary<string, int>();
+        //                // ==== tính status ====
+        //                var todayPlannedQty = todayPlannedQtyMap.TryGetValue(p.Id, out var tpq) ? tpq : 0;
+
+        //                var actualKey = (WorkShift: p.LineNumber, StyleId: p.StyleId, ColorId: p.ColorId);
+        //                var actualQty = actualQtyMap.TryGetValue(actualKey, out var aq) ? aq : 0;
+
+        //                var remainingQty = p.TotalPlannedQty - actualQty;
+
+        //                string computedStatus;
+        //                if (actualQty >= p.TotalPlannedQty)
+        //                {
+        //                    computedStatus = "hoan_thanh";       // Hoàn thành
+        //                }
+        //                else if (todayPlannedQty > 0)
+        //                {
+        //                    computedStatus = "dang_san_xuat";    // Đang sản xuất
+        //                }
+        //                else if (remainingQty > 0)
+        //                {
+        //                    computedStatus = "tam_dung";         // Tạm dừng
+        //                }
+        //                else
+        //                {
+        //                    computedStatus = p.Status; // fallback hiếm khi xảy ra
+        //                }
+        //                // ===== MỚI: xác định dòng này có phải là kết quả của việc TÁCH PO gốc không =====
+        //                bool isSplited = p.ParentPlanId != null && parentPlansMap.ContainsKey(p.ParentPlanId.Value);
+
+        //                object? splitFromPo = null;
+        //                if (isSplited)
+        //                {
+        //                    var parentPlan = parentPlansMap[p.ParentPlanId!.Value];
+        //                    var parentPoName = poNameMap.TryGetValue(parentPlan.PoId, out var ppn) ? ppn : string.Empty;
+        //                    var parentStyleName = itemNameMap.TryGetValue(parentPlan.StyleId, out var psn) ? psn : string.Empty;
+        //                    var parentDailyPlannedQty = parentPlanDailyQtyMap.TryGetValue(parentPlan.Id, out var pQtyByDate)
+        //                       ? pQtyByDate
+        //                       : new Dictionary<string, int>();
+        //                    var parentDailyActualQty = parentPlanActualByDateMap.TryGetValue(parentPlan.Id, out var pActualByDate)
+        //                        ? pActualByDate
+        //                        : new Dictionary<string, int>();
+
+        //                    splitFromPo = new
+        //                    {
+        //                        factoryPlanId = parentPlan.Id,          // id của plan gốc
+        //                        poId = parentPlan.PoId,                 // PO GỐC (đúng yêu cầu)
+        //                        poName = parentPoName,
+        //                        styleId = parentPlan.StyleId,
+        //                        styleName = parentStyleName,
+        //                        colorId = parentPlan.ColorId,
+        //                        versionId = parentPlan.VersionId,
+        //                        planCode = parentPlan.PlanCode,
+        //                        khTongGoc = parentPlan.TotalPlannedQty,  // tổng KH của PO gốc trước khi tách
+        //                        soDongDaTach = splitSiblingCountMap.TryGetValue(parentPlan.Id, out var cnt) ? cnt : 1,
+        //                        // ===== MỚI: KH & thực tế theo ngày của PO gốc trước khi tách =====
+        //                        dailyPlannedQty = parentDailyPlannedQty,
+        //                        dailyActualQty = parentDailyActualQty,
+        //                        hasActualData = parentPlanActualByDateMap.ContainsKey(parentPlan.Id),
+        //                    };
+        //                }
+
+        //                return new
+        //                {
+        //                    id = p.Id,
+        //                    planCode = p.PlanCode,
+        //                    factoryId = p.FactoryId,
+        //                    lineNumber = p.LineNumber,
+        //                    styleId = p.StyleId,
+        //                    styleName = resolvedStyleName,
+        //                    poId = p.PoId,
+        //                    poName = resolvedPoName,
+        //                    colorId = p.ColorId,
+        //                    colorName = p.ColorId,
+        //                    //productionStartDate = p.ProductionStartDate,
+        //                    //productionEndDate = p.ProductionEndDate,
+        //                    //targetDeliveryDate = resolvedTargetDeliveryDate,
+        //                    totalPlannedQty = p.TotalPlannedQty,
+        //                    teamTotalQty = resolvedTeamTotalQty,
+        //                    teamActualQty = resolvedActualQtyByDate,
+        //                    operationCode = p.OperationCode,
+        //                    cmPrice = ResolveCmPrice(p.StyleId, p.OperationCode),
+        //                    status = computedStatus,
+        //                    // ===== MỚI: các PO gốc đã gộp vào dòng này (nếu có) =====
+        //                    isMerged = mergedSourceByParentId.ContainsKey(p.Id),
+        //                    mergedFromPos = ResolveMergedFromPos(p.Id),
+        //                    isSplited = isSplited,
+        //                    splitFromPo = splitFromPo,
+        //                    targetDeliveryDate = resolvedTargetDeliveryDate?.ToString("dd-MM-yyyy") ?? string.Empty,
+        //                };
+        //            })
+        //            .OrderBy(pl => pl.lineNumber)
+        //            .ThenBy(pl => pl.styleId)
+        //            .ToList();
+
+        //        return Ok(new
+        //        {
+        //            success = true,
+        //            data = new { orders, planLines }
+        //        });
+        //    }
+
+        [HttpGet("factory-plans-v2/orders")]
+        public async Task<IActionResult> GetFactoryOrders_V2(
+            [FromQuery] string factoryId,
+            [FromQuery] int year, [FromQuery] int month,
+            [FromQuery] int toYear, [FromQuery] int toMonth,
+            [FromQuery] string? lineNumber = null,
+            [FromQuery] string? styleName = null)
         {
+            var error = ValidatePeriod(factoryId, year, month, toYear, toMonth, out var from, out var to);
+            if (error != null) return error;
+
+            var orders = await BuildOrdersAsync(factoryId, from, to, lineNumber, styleName);
+            return Ok(new { success = true, data = new { orders } });
+        }
+
+        [HttpGet("factory-plans-v2/plan-lines")]
+        public async Task<IActionResult> GetFactoryPlanLines_V2(
+            [FromQuery] string factoryId,
+            [FromQuery] int year, [FromQuery] int month,
+            [FromQuery] int toYear, [FromQuery] int toMonth,
+            [FromQuery] string? lineNumber = null,
+            [FromQuery] string? styleName = null)
+        {
+            var error = ValidatePeriod(factoryId, year, month, toYear, toMonth, out var from, out var to);
+            if (error != null) return error;
+
+            var planLines = await BuildPlanLinesAsync(factoryId, from, to, lineNumber, styleName);
+            return Ok(new { success = true, data = new { planLines } });
+        }
+
+        private IActionResult? ValidatePeriod(string factoryId, int year, int month, int toYear, int toMonth,
+    out DateOnly from, out DateOnly to)
+        {
+            from = default;
+            to = default;
+
             if (string.IsNullOrWhiteSpace(factoryId))
                 return BadRequest(new { success = false, message = "Vui lòng truyền factoryId." });
             if (year <= 0 || toYear <= 0 || month < 1 || month > 12 || toMonth < 1 || toMonth > 12)
                 return BadRequest(new { success = false, message = "year và month không hợp lệ." });
 
-            var monthStart = new DateOnly(year, month, 1);
-            var toMonthEnd = new DateOnly(toYear, toMonth, 1).AddMonths(1).AddDays(-1);
+            from = new DateOnly(year, month, 1);
+            to = new DateOnly(toYear, toMonth, 1).AddMonths(1).AddDays(-1);
+            return null;
+        }
 
-            // ---- B1: Lọc plans theo factoryId / lineNumber / styleName ----
+        private sealed class PlanBoardBase
+        {
+            public List<MesFactoryPlan> Plans { get; init; } = new();
+            public Dictionary<(Guid VersionId, string FactoryId, string StyleId, string PoId, string ColorId), DateOnly?>
+                TargetDeliveryMap
+            { get; init; } = new();
+        }
+
+        /// <summary>
+        /// Query plan nền dùng chung cho 2 tab: plan active của nhà máy, lọc theo Tổ / Style.
+        /// onlyAssigned = true: chỉ lấy các dòng ĐÃ gán Tổ (tab Kế hoạch sản xuất).
+        /// </summary>
+        private async Task<IQueryable<MesFactoryPlan>> CreatePlanQueryAsync(
+            string factoryId, string? lineNumber, string? styleName, bool onlyAssigned)
+        {
             var planQuery = _context.MesFactoryPlans.AsNoTracking()
                 .Where(p => p.FactoryId == factoryId && p.IsActive);
+
+            if (onlyAssigned)
+                planQuery = planQuery.Where(p => p.LineNumber != null && p.LineNumber != "");
 
             if (!string.IsNullOrWhiteSpace(lineNumber))
                 planQuery = planQuery.Where(p => p.LineNumber == lineNumber);
@@ -3703,35 +5052,32 @@ namespace EquipManagementAPI.Controllers
             if (!string.IsNullOrWhiteSpace(styleName))
             {
                 var trimKeyword = styleName.Trim();
-                var keyword = _context.Item
+                var keyword = await _context.Item
                     .Where(p => p.Name == trimKeyword)
                     .Select(p => p.No)
-                    .FirstOrDefault();
+                    .FirstOrDefaultAsync();
                 if (!string.IsNullOrEmpty(keyword))
-                {
                     planQuery = planQuery.Where(p => p.StyleId.Contains(keyword));
-                }
             }
 
-            // ---- TAB KẾ HOẠCH SẢN XUẤT: lọc riêng theo NGÀY SẢN XUẤT (production_start_date/production_end_date),
-            // KHÔNG dùng ngày giao hàng như tab Đơn hàng. Chỉ lấy các dòng đã gán tổ (LineNumber) và có khoảng
-            // ngày sản xuất giao với kỳ lọc [monthStart, toMonthEnd].
-            //var planLinePlans = await planQuery
-            //    .Where(p => !string.IsNullOrWhiteSpace(p.LineNumber)
-            //             && p.ProductionStartDate != null
-            //             && p.ProductionEndDate != null
-            //             && p.ProductionStartDate <= toMonthEnd
-            //             && p.ProductionEndDate >= monthStart)
-            //    .OrderBy(p => p.LineNumber)
-            //    .ThenBy(p => p.StyleId)
-            //    .ToListAsync();
+            return planQuery;
+        }
 
-            // Bộ khóa distinct để JOIN — vẫn là IQueryable, chưa gọi DB
+        /// <summary>
+        /// Bước lọc nền cho TAB ĐƠN HÀNG: plan active của nhà máy -> JOIN production_order_items theo tổ hợp
+        /// 5 cột -> giữ các tổ hợp có TargetDeliveryDate (ngày giao hàng) nằm trong kỳ [from, to].
+        /// (Tab Kế hoạch sản xuất KHÔNG dùng hàm này — nó lọc theo ProductionStartDate, xem BuildPlanLinesAsync.)
+        /// </summary>
+        private async Task<PlanBoardBase> LoadPlanBoardBaseAsync(
+            string factoryId, DateOnly from, DateOnly to,
+            string? lineNumber, string? styleName)
+        {
+            var planQuery = await CreatePlanQueryAsync(factoryId, lineNumber, styleName, onlyAssigned: false);
+
             var planKeys = planQuery
                 .Select(p => new { p.VersionId, p.FactoryId, p.StyleId, p.PoId, p.ColorId })
                 .Distinct();
 
-            // JOIN đúng tổ hợp 5 cột thay vì 4 Contains rời rạc
             var filteredGroups = await _context.MesProductionOrderItems
                 .AsNoTracking()
                 .Where(x => x.FactoryId == factoryId)
@@ -3749,63 +5095,19 @@ namespace EquipManagementAPI.Controllers
                     g.Key.ColorId,
                     TargetDeliveryDate = g.Max(x => x.TargetDeliveryDate)
                 })
-                .Where(g => g.TargetDeliveryDate >= monthStart && g.TargetDeliveryDate <= toMonthEnd)
+                .Where(g => g.TargetDeliveryDate >= from && g.TargetDeliveryDate <= to)
                 .ToListAsync();
 
-            // Chỉ return sớm khi CẢ orders (theo ngày giao hàng) VÀ planLines (theo ngày sản xuất) đều rỗng
-            if (filteredGroups.Count == 0 )
-                return Ok(new { success = true, data = new { orders = Array.Empty<object>(), planLines = Array.Empty<object>() } });
+            if (filteredGroups.Count == 0)
+                return new PlanBoardBase();
 
             var validKeys = filteredGroups
                 .Select(g => (g.VersionId, g.FactoryId, g.StyleId, g.PoId, g.ColorId))
                 .ToHashSet();
 
-            var targetDeliveryMap = filteredGroups.ToDictionary(
-                g => (g.VersionId, g.FactoryId, g.StyleId, g.PoId, g.ColorId),
-                g => g.TargetDeliveryDate);
-
-            //// planLinePlans có thể chứa PO có ngày giao hàng NẰM NGOÀI kỳ lọc (vì giờ lọc theo ngày sản xuất) —
-            //// bổ sung targetDeliveryDate cho các tổ hợp này (không giới hạn theo monthStart/toMonthEnd) để FE vẫn
-            //// hiển thị đúng ngày giao hàng ở tab Kế hoạch sản xuất thay vì để trống.
-            //var planLineComboKeys = planLinePlans
-            //    .Select(p => new { p.VersionId, p.FactoryId, p.StyleId, p.PoId, p.ColorId })
-            //    .Distinct()
-            //    .Where(k => !targetDeliveryMap.ContainsKey((k.VersionId, k.FactoryId, k.StyleId, k.PoId, k.ColorId)))
-            //    .ToList();
-
-            //if (planLineComboKeys.Count > 0)
-            //{
-            //    var planLineVersionIds = planLineComboKeys.Select(k => k.VersionId).Distinct().ToList();
-            //    var planLineStyleIds = planLineComboKeys.Select(k => k.StyleId).Distinct().ToList();
-            //    var planLinePoIds = planLineComboKeys.Select(k => k.PoId).Distinct().ToList();
-            //    var planLineColorIds = planLineComboKeys.Select(k => k.ColorId).Distinct().ToList();
-
-            //    var extraDeliveryGroups = await _context.MesProductionOrderItems
-            //        .AsNoTracking()
-            //        .Where(x => x.FactoryId == factoryId
-            //                 && planLineVersionIds.Contains(x.VersionId)
-            //                 && planLineStyleIds.Contains(x.StyleId)
-            //                 && planLinePoIds.Contains(x.PoId)
-            //                 && planLineColorIds.Contains(x.ColorId))
-            //        .GroupBy(x => new { x.VersionId, x.FactoryId, x.StyleId, x.PoId, x.ColorId })
-            //        .Select(g => new
-            //        {
-            //            g.Key.VersionId,
-            //            g.Key.FactoryId,
-            //            g.Key.StyleId,
-            //            g.Key.PoId,
-            //            g.Key.ColorId,
-            //            TargetDeliveryDate = g.Max(x => x.TargetDeliveryDate)
-            //        })
-            //        .ToListAsync();
-
-            //    foreach (var g in extraDeliveryGroups)
-            //    {
-            //        var comboKey = (g.VersionId, g.FactoryId, g.StyleId, g.PoId, g.ColorId);
-            //        if (!targetDeliveryMap.ContainsKey(comboKey))
-            //            targetDeliveryMap[comboKey] = g.TargetDeliveryDate;
-            //    }
-            //}
+            var targetDeliveryMap = new Dictionary<(Guid VersionId, string FactoryId, string StyleId, string PoId, string ColorId), DateOnly?>();
+            foreach (var g in filteredGroups)
+                targetDeliveryMap[(g.VersionId, g.FactoryId, g.StyleId, g.PoId, g.ColorId)] = g.TargetDeliveryDate;
 
             var groupVersionIds = filteredGroups.Select(g => g.VersionId).Distinct().ToList();
             var groupStyleIds = filteredGroups.Select(g => g.StyleId).Distinct().ToList();
@@ -3813,7 +5115,6 @@ namespace EquipManagementAPI.Controllers
             var groupColorIds = filteredGroups.Select(g => g.ColorId).Distinct().ToList();
 
             var candidatePlans = await planQuery
-                .AsNoTracking()
                 .Where(p => groupVersionIds.Contains(p.VersionId)
                          && groupStyleIds.Contains(p.StyleId)
                          && groupPoIds.Contains(p.PoId)
@@ -3827,306 +5128,76 @@ namespace EquipManagementAPI.Controllers
                 .Where(p => validKeys.Contains((p.VersionId, p.FactoryId, p.StyleId, p.PoId, p.ColorId)))
                 .ToList();
 
-            if (plans.Count == 0 )
-                return Ok(new { success = true, data = new { orders = Array.Empty<object>(), planLines = Array.Empty<object>() } });
-            var planLinePlans = plans
-                .Where(p => !string.IsNullOrWhiteSpace(p.LineNumber))
-                .ToList();
-            // Các id list giờ suy ra từ "plans" đã lọc (tập nhỏ hơn nhiều so với allPlans trước đây)
-            var versionIds = plans.Select(p => p.VersionId).Distinct().ToList();
-            var styleIds = plans.Select(p => p.StyleId).Distinct().ToList();
-            var poIds = plans.Select(p => p.PoId).Distinct().ToList();
-            var colorIds = plans.Select(p => p.ColorId).Distinct().ToList();
+            return new PlanBoardBase { Plans = plans, TargetDeliveryMap = targetDeliveryMap };
+        }
 
-            // ---- Lookup StyleName từ bảng Item (No -> Name) ----
-            var planStyleIds = plans.Select(p => p.StyleId).Concat(planLinePlans.Select(p => p.StyleId)).Distinct().ToList();
-            var itemNameMap = await _context.Item
-                .Where(i => planStyleIds.Contains(i.No))
+        private async Task<Dictionary<string, string>> LoadItemNamesAsync(IEnumerable<string> styleIds)
+        {
+            var ids = styleIds.Distinct().ToList();
+            if (ids.Count == 0) return new Dictionary<string, string>();
+
+            return await _context.Item
+                .Where(i => ids.Contains(i.No))
                 .Select(i => new { i.No, i.Name })
                 .ToDictionaryAsync(i => i.No, i => i.Name ?? string.Empty);
+        }
 
-            // ---- Lookup PoName từ bảng Sales Order Header ----
-            var planPoIds = plans.Select(p => p.PoId).Concat(planLinePlans.Select(p => p.PoId)).Distinct().ToList();
-            // Bước 1: Lấy PoName từ MesProductionOrderItems trước (nguồn ưu tiên)
-            var mesPoNameMap = await _context.MesProductionOrderItems
-                .Where(i => planPoIds.Contains(i.PoId) && !string.IsNullOrEmpty(i.POName))
+        /// <summary>
+        /// Bổ sung tên PO còn thiếu vào poNameMap. Gộp 3 khối tra tên trùng lặp của code cũ làm 1.
+        /// Ưu tiên: production_order_items (tên mới nhất) -> Sales Order Header.
+        /// </summary>
+        private async Task EnsurePoNamesAsync(Dictionary<string, string> poNameMap, IEnumerable<string> poIds)
+        {
+            var missing = poIds.Distinct()
+                .Where(id => !poNameMap.TryGetValue(id, out var n) || string.IsNullOrWhiteSpace(n))
+                .ToList();
+            if (missing.Count == 0) return;
+
+            var fromMes = await _context.MesProductionOrderItems
+                .Where(i => missing.Contains(i.PoId) && !string.IsNullOrEmpty(i.POName))
                 .GroupBy(i => i.PoId)
-                .Select(g => new { PoId = g.Key, POName = g.First().POName })
+                .Select(g => new
+                {
+                    PoId = g.Key,
+                    POName = g.OrderByDescending(x => x.CreatedAt).Select(x => x.POName).First()
+                })
                 .ToDictionaryAsync(x => x.PoId, x => x.POName ?? string.Empty);
 
-            var salesPoNameMap = await _context.SalesOrderHeader
-                .Where(s => planPoIds.Contains(s.No))
+            foreach (var kv in fromMes)
+                poNameMap[kv.Key] = kv.Value;
+
+            var stillMissing = missing
+                .Where(id => !poNameMap.TryGetValue(id, out var n) || string.IsNullOrWhiteSpace(n))
+                .ToList();
+            if (stillMissing.Count == 0) return;
+
+            var fromHeader = await _context.SalesOrderHeader
+                .Where(s => stillMissing.Contains(s.No))
                 .Select(s => new { s.No, s.POName })
                 .ToDictionaryAsync(s => s.No, s => s.POName ?? string.Empty);
 
-            var poNameMap = new Dictionary<string, string>();
-            foreach (var poId in planPoIds)
-            {
-                if (mesPoNameMap.TryGetValue(poId, out var mesName) && !string.IsNullOrWhiteSpace(mesName))
-                {
-                    poNameMap[poId] = mesName;
-                }
-                else if (salesPoNameMap.TryGetValue(poId, out var salesName))
-                {
-                    poNameMap[poId] = salesName;
-                }
-                else
-                {
-                    poNameMap[poId] = string.Empty;
-                }
-            }
+            foreach (var kv in fromHeader)
+                poNameMap[kv.Key] = kv.Value;
+        }
 
-            var missingPoIds = planPoIds
-                .Where(id => !poNameMap.TryGetValue(id, out var name) || string.IsNullOrWhiteSpace(name))
-                .ToList();
+        /// <summary>Trả về hàm tra đơn giá CM (ưu tiên split theo operationCode nếu có) — dùng chung 2 tab.</summary>
+        private async Task<Func<string, string?, object?>> BuildCmPriceResolverAsync(IEnumerable<string> styleIds, DateTime toDt)
+        {
+            var ids = styleIds.Distinct().ToList();
 
-            // Bước 3: nếu còn thiếu, tìm bổ sung ở production_order_items
-            if (missingPoIds.Count > 0)
-            {
-                var fallbackMap = await _context.MesProductionOrderItems
-                    .Where(i => missingPoIds.Contains(i.PoId) && !string.IsNullOrEmpty(i.POName))
-                    .GroupBy(i => i.PoId)
-                    // 1 PoId có thể có nhiều dòng item -> lấy 1 tên đại diện (mới nhất theo CreatedAt, hoặc First tùy nghiệp vụ)
-                    .Select(g => new { PoId = g.Key, POName = g.OrderByDescending(x => x.CreatedAt).Select(x => x.POName).First() })
-                    .ToDictionaryAsync(x => x.PoId, x => x.POName ?? string.Empty);
-
-                // Bước 4: merge vào map chính (ghi đè/bổ sung)
-                foreach (var kv in fallbackMap)
-                {
-                    poNameMap[kv.Key] = kv.Value;
-                }
-            }
-            var planTeamIds = plans.Select(p => p.LineNumber).Concat(planLinePlans.Select(p => p.LineNumber)).Distinct().ToList();
-            var teamIdMap = await _context.workShift
-                .Where(s => planTeamIds.Contains(s.Code))
-                .Select(s => new { s.Code, s.Name })
-                .ToDictionaryAsync(s => s.Code, s => s.Name ?? string.Empty);
-            // ---- Lookup teamTotalQty (từng ngày) — chỉ cần cho các dòng ĐÃ có tổ ----
-            var monthStartDt = monthStart.ToDateTime(TimeOnly.MinValue);
-            var toMonthEndDt = toMonthEnd.ToDateTime(TimeOnly.MaxValue);
-
-            // Dùng planLinePlans (đã lọc theo ngày sản xuất) thay vì plans (lọc theo ngày giao hàng)
-            var planIdsWithTeam = plans
-                .Select(p => p.Id)
-                .ToList();
-
-            var planLinesRaw = await _context.MesFactoryPlanLines.AsNoTracking()
-                .Where(l => planIdsWithTeam.Contains(l.FactoryPlanId)
-                         && l.WorkDate >= monthStartDt
-                         && l.WorkDate <= toMonthEndDt)
-                .ToListAsync();
-
-            var teamTotalQtyMap = planLinesRaw
-                .GroupBy(l => l.FactoryPlanId)
-                .ToDictionary(
-                    g => g.Key,
-                    g => g
-                        .GroupBy(l => l.WorkDate.Date)              // gộp nếu trùng ngày (tránh lỗi duplicate key)
-                        .ToDictionary(
-                            dg => dg.Key.ToString("yyyy-MM-dd"),
-                            dg => dg.Sum(x => x.PlannedQty)
-                        )
-                );
-            // ---- Lookup PassOutput theo từng ngày (Thực hiện) — dựa theo PlanId ----
-            var qlclByPlanRaw = await _context.qualityManagementSessions.AsNoTracking()
-             .Where(q => q.PlanId != null
-                      && planIdsWithTeam.Contains(q.PlanId.Value)
-                      && q.InspectionDate >= monthStartDt
-                      && q.InspectionDate <= toMonthEndDt && q.Status==1)
-             .Select(q => new { q.PlanId, q.InspectionDate, q.PassOutputQuantity })
-             .ToListAsync();
-
-            var actualQtyByDateMap = qlclByPlanRaw
-                .GroupBy(q => q.PlanId)
-                .ToDictionary(
-                    g => g.Key,
-                    g => g
-                        .GroupBy(x => x.InspectionDate.Date)   // gộp nếu trùng ngày
-                        .ToDictionary(
-                            dg => dg.Key.ToString("yyyy-MM-dd"),
-                            dg => dg.Sum(x => x.PassOutputQuantity)
-                        )
-                );
-            var today = DateTime.Today;
-            // planned_qty tại work_date = hôm nay, cho TẤT CẢ các dòng đã gán tổ
-            //    (không giới hạn theo khoảng monthStart..toMonthEnd, vì "hôm nay" có thể
-            //    nằm ngoài khoảng filter đang xem)
-            var todayPlannedQtyMap = await _context.MesFactoryPlanLines
-                .Where(l => planIdsWithTeam.Contains(l.FactoryPlanId) && l.WorkDate.Date == today)
-                .GroupBy(l => l.FactoryPlanId)
-                .Select(g => new { FactoryPlanId = g.Key, Qty = g.Sum(x => x.PlannedQty) })
-                .ToDictionaryAsync(x => x.FactoryPlanId, x => x.Qty);
-          
-            //Bỏ active=true
-            var mergedSourcePlans = await _context.MesFactoryPlans
-            .Where(s => s.ParentPlanId != null
-                     && planIdsWithTeam.Contains(s.ParentPlanId.Value) 
-                     && s.LineNumber != null)      // <-- THÊM điều kiện này
-            .ToListAsync();
-
-            var mergedSourceByParentId = mergedSourcePlans
-                .GroupBy(s => s.ParentPlanId!.Value)
-                .ToDictionary(g => g.Key, g => g.ToList());
-
-            var sourcePoIds = mergedSourcePlans
-            .Select(s => s.PoId)
-            .Distinct()
-            .Where(id => !poNameMap.ContainsKey(id) || string.IsNullOrWhiteSpace(poNameMap[id]))
-            .ToList();
-
-            if (sourcePoIds.Count > 0)
-            {
-                var sourcePoNameFromHeader = await _context.SalesOrderHeader
-                    .Where(s => sourcePoIds.Contains(s.No))
-                    .Select(s => new { s.No, s.POName })
-                    .ToDictionaryAsync(s => s.No, s => s.POName ?? string.Empty);
-
-                foreach (var kv in sourcePoNameFromHeader)
-                    poNameMap[kv.Key] = kv.Value;
-
-                var stillMissing = sourcePoIds
-                    .Where(id => !poNameMap.TryGetValue(id, out var n) || string.IsNullOrWhiteSpace(n))
-                    .ToList();
-
-                if (stillMissing.Count > 0)
-                {
-                    var fallback = await _context.MesProductionOrderItems
-                        .Where(i => stillMissing.Contains(i.PoId) && !string.IsNullOrEmpty(i.POName))
-                        .GroupBy(i => i.PoId)
-                        .Select(g => new
-                        {
-                            PoId = g.Key,
-                            POName = g.OrderByDescending(x => x.CreatedAt).Select(x => x.POName).First()
-                        })
-                        .ToDictionaryAsync(x => x.PoId, x => x.POName ?? string.Empty);
-
-                    foreach (var kv in fallback)
-                        poNameMap[kv.Key] = kv.Value;
-                }
-            }
-
-            // =========================================================
-            // Lookup planned_qty theo NGÀY cho từng dòng PO GỐC đã gộp (MesFactoryPlanLines)
-            // Cùng khoảng [monthStart, toMonthEnd] như teamTotalQtyMap để nhất quán dữ liệu hiển thị.
-            // =========================================================
-            var mergedSourcePlanIds = mergedSourcePlans.Select(s => s.Id).ToList();
-
-            var mergedSourceLinesRaw = mergedSourcePlanIds.Count > 0
-                ? await _context.MesFactoryPlanLines
-                    .Where(l => mergedSourcePlanIds.Contains(l.FactoryPlanId)
-                             && l.WorkDate >= monthStartDt
-                             && l.WorkDate <= toMonthEndDt)
-                    .ToListAsync()
-                : new List<MesFactoryPlanLine>();
-
-            var mergedSourceDailyQtyMap = mergedSourceLinesRaw
-                .GroupBy(l => l.FactoryPlanId)
-                .ToDictionary(
-                    g => g.Key,
-                    g => g
-                        .GroupBy(l => l.WorkDate.Date)          // gộp nếu trùng ngày
-                        .ToDictionary(
-                            dg => dg.Key.ToString("yyyy-MM-dd"),
-                            dg => dg.Sum(x => x.PlannedQty)
-                        )
-                );
-            // =========================================================
-            // Lookup Actual (PassOutput) theo NGÀY cho từng dòng PO GỐC đã gộp
-            // (tương tự actualQtyByDateMap nhưng áp dụng cho mergedSourcePlanIds thay vì planIdsWithTeam)
-            // =========================================================
-            var mergedSourceQlclRaw = await _context.qualityManagementSessions
-            .Where(q => q.PlanId != null
-                     && mergedSourcePlanIds.Contains(q.PlanId.Value)
-                     && q.InspectionDate >= monthStartDt && q.Status==1
-                     && q.InspectionDate <= toMonthEndDt)
-            .Select(q => new
-            {
-                PlanId = q.PlanId.Value,
-                q.InspectionDate,
-                q.PassOutputQuantity
-            })
-            .ToListAsync();
-
-            var mergedSourceActualByDateMap = mergedSourceQlclRaw
-                .GroupBy(q => q.PlanId)
-                .ToDictionary(
-                    g => g.Key,
-                    g => g
-                        .GroupBy(x => x.InspectionDate.Date)
-                        .ToDictionary(
-                            dg => dg.Key.ToString("yyyy-MM-dd"),
-                            dg => dg.Sum(x => x.PassOutputQuantity)
-                        )
-                );
-            // Helper: build danh sách PO gốc đã gộp cho 1 dòng factory_plan hiện tại
-            List<object> ResolveMergedFromPos(Guid planId)
-            {
-                if (!mergedSourceByParentId.TryGetValue(planId, out var sources))
-                    return new List<object>();
-
-                return sources
-                    .OrderBy(s => s.PoId)
-                    .Select(s => new
-                    {
-                        factoryPlanId = s.Id,
-                        poId = s.PoId,
-                        poName = poNameMap.TryGetValue(s.PoId, out var pn) ? pn : string.Empty,
-                        planCode = s.PlanCode,
-                        lineNumber = s.LineNumber,
-                        operationCode = s.OperationCode,
-                        totalPlannedQty = s.TotalPlannedQty,
-                        status = s.Status,       // "merged_source"
-                        mergedAt = s.MergedAt,
-                        mergedBy = s.MergedBy,
-
-                        // ===== MỚI: KH theo từng ngày (work_date) của dòng PO gốc này =====
-                        dailyPlannedQty = mergedSourceDailyQtyMap.TryGetValue(s.Id, out var qtyByDate)
-                            ? qtyByDate
-                            : new Dictionary<string, int>(),
-                        // ===== MỚI: actual theo ngày của PO gốc =====
-                        dailyActualQty = mergedSourceActualByDateMap.TryGetValue(s.Id, out var actualByDate)
-                            ? actualByDate
-                            : new Dictionary<string, int>(),
-
-                        // Cờ để FE biết PO gốc này có dữ liệu thực hiện hay không -> hiển thị badge cảnh báo nếu cần
-                        hasActualData = mergedSourceActualByDateMap.ContainsKey(s.Id),
-                    })
-                    .ToList<object>();
-            }
-
-            var todayEndDt = DateTime.Today.AddDays(1).AddTicks(-1); // 23:59:59.999... hôm nay
-
-            // Mở rộng style/color thêm từ planLinePlans để actualQtyMap phủ đủ cho tab Kế hoạch sản xuất
-            var allStyleIdsForActual = styleIds.Concat(planLinePlans.Select(p => p.StyleId)).Distinct().ToList();
-            var allColorIdsForActual = colorIds.Concat(planLinePlans.Select(p => p.ColorId)).Distinct().ToList();
-
-            var qlclRaw = await _context.qualityManagementSessions
-                .Where(q => allStyleIdsForActual.Contains(q.ItemNo)
-                         && allColorIdsForActual.Contains(q.ColorNo)
-                         && q.InspectionDate <= todayEndDt
-                         && planTeamIds.Contains(q.WorkShiftCode) && q.WorkCenterCode == factoryId && q.Status==1)
-                .Select(q => new { q.WorkShiftCode, q.ItemNo, q.ColorNo, q.PassOutputQuantity })
-                .ToListAsync();
-
-            var actualQtyMap = qlclRaw
-                .GroupBy(q => (WorkShift: q.WorkShiftCode, StyleId: q.ItemNo, ColorId: q.ColorNo))
-                .ToDictionary(g => g.Key, g => g.Sum(x => x.PassOutputQuantity));
-
-            // ---- Lookup Đơn giá CM: lấy giá còn hiệu lực trong khoảng [monthStart, toMonthEnd] ----
             var allCmPrices = await _context.StyleCmPrice.AsNoTracking()
-                .Where(c => planStyleIds.Contains(c.StyleId))
+                .Where(c => ids.Contains(c.StyleId) && c.IsActive == true)
                 .ToListAsync();
 
             var cmPriceByStyle = allCmPrices
                 .GroupBy(c => c.StyleId, StringComparer.OrdinalIgnoreCase)
-                .Select(g =>
+                .Select(g => new
                 {
-                    var picked = g
-                        .Where(c => c.EffectiveDate <= toMonthEndDt)
-                        .OrderByDescending(c => c.EffectiveDate)
-                         .ThenByDescending(c => c.CreatedAt)
-                        .FirstOrDefault();
-                    return new { StyleId = g.Key, Price = picked };
+                    StyleId = g.Key,
+                    Price = g.Where(c => c.EffectiveDate <= toDt)
+                             .OrderByDescending(c => c.EffectiveDate)
+                             .ThenByDescending(c => c.CreatedAt)
+                             .FirstOrDefault()
                 })
                 .Where(x => x.Price != null)
                 .ToDictionary(x => x.StyleId, x => x.Price!, StringComparer.OrdinalIgnoreCase);
@@ -4141,8 +5212,7 @@ namespace EquipManagementAPI.Controllers
                 .GroupBy(s => s.StyleCmPriceId)
                 .ToDictionary(g => g.Key, g => g.ToList());
 
-            // Hàm helper: lấy đơn giá CM đã resolve (ưu tiên theo operationCode nếu có split khớp)
-            object? ResolveCmPrice(string styleId, string? operationCode)
+            return (styleId, operationCode) =>
             {
                 if (!cmPriceByStyle.TryGetValue(styleId, out var cmPrice)) return null;
                 splitsByCmPriceId.TryGetValue(cmPrice.Id, out var splitsForThisPrice);
@@ -4156,54 +5226,75 @@ namespace EquipManagementAPI.Controllers
                     operationCode = operationCode,
                     operationName = matchedSplit?.OperationName,
                 };
-            }
+            };
+        }
 
-            // =========================================================
-            // TAB ĐƠN HÀNG: gộp theo VersionId + StyleId + PoId + ColorId
-            // =========================================================
-            var rawItems = await _context.MesProductionOrderItems
-             .Where(x => styleIds.Contains(x.StyleId)
-                      && poIds.Contains(x.PoId)
-                      && colorIds.Contains(x.ColorId) && x.FactoryId==factoryId)
-             .Select(x => new { x.StyleId, x.PoId, x.ColorId, x.SizeId,x.PlannedQty,x.VersionId })
-             .ToListAsync();
-
-            var sizeIdDict = rawItems
-            .GroupBy(x => (x.StyleId, x.PoId, x.ColorId, x.VersionId))
-            .ToDictionary(
-                g => g.Key,
-                g => g
-                    .GroupBy(x => x.SizeId)
-                    .Select(sg => new SizeQtyDto(sg.Key, sg.Sum(x => x.PlannedQty)))
-                    .ToList()
-            );
-            // ---- Precompute thông tin nhóm để phát hiện "đã tách" (cùng group key với orders) ----
-            var groupedForSplit = plans
-                .GroupBy(p => new { p.VersionId, p.StyleId, p.PoId, p.ColorId })
+        /// <summary>Gộp dòng theo (planId -> yyyy-MM-dd -> tổng) — thay cho 6 đoạn GroupBy/ToDictionary lặp lại.</summary>
+        private static Dictionary<Guid, Dictionary<string, int>> ToDailyMap<T>(
+            IEnumerable<T> rows, Func<T, Guid> planId, Func<T, DateTime> date, Func<T, int> qty)
+        {
+            return rows
+                .GroupBy(planId)
                 .ToDictionary(
                     g => g.Key,
-                    g => new
-                    {
-                        AssignedCount = g.Count(p => !string.IsNullOrWhiteSpace(p.LineNumber)),
-                        HasGoc = g.Any(p => string.IsNullOrWhiteSpace(p.LineNumber)),
-                        KhTongGoc = g.Where(p => string.IsNullOrWhiteSpace(p.LineNumber))
-                                     .Select(p => (int?)p.TotalPlannedQty)
-                                     .DefaultIfEmpty(null)
-                                     .Max(),
-                    });
-            var orders = plans
+                    g => g.GroupBy(r => date(r).Date)               // gộp nếu trùng ngày
+                          .ToDictionary(dg => dg.Key.ToString("yyyy-MM-dd"), dg => dg.Sum(qty)));
+        }
+
+
+        // ---------------------------------------------------------------------------
+        // 3) TAB ĐƠN HÀNG
+        // ---------------------------------------------------------------------------
+
+        private async Task<List<object>> BuildOrdersAsync(
+            string factoryId, DateOnly from, DateOnly to, string? lineNumber, string? styleName)
+        {
+            // Tab Đơn hàng cần TẤT CẢ dòng: dòng gốc chưa phân tổ + dòng đã gán Tổ
+            var baseCtx = await LoadPlanBoardBaseAsync(factoryId, from, to, lineNumber, styleName);
+            var plans = baseCtx.Plans;
+            if (plans.Count == 0) return new List<object>();
+
+            var targetDeliveryMap = baseCtx.TargetDeliveryMap;
+
+            var styleIds = plans.Select(p => p.StyleId).Distinct().ToList();
+            var poIds = plans.Select(p => p.PoId).Distinct().ToList();
+            var colorIds = plans.Select(p => p.ColorId).Distinct().ToList();
+
+            var itemNameMap = await LoadItemNamesAsync(styleIds);
+            var poNameMap = new Dictionary<string, string>();
+            await EnsurePoNamesAsync(poNameMap, poIds);
+            var resolveCmPrice = await BuildCmPriceResolverAsync(styleIds, to.ToDateTime(TimeOnly.MaxValue));
+
+            // Breakdown size gốc theo (Style, PO, Màu, Version)
+            var rawItems = await _context.MesProductionOrderItems
+                .Where(x => styleIds.Contains(x.StyleId)
+                         && poIds.Contains(x.PoId)
+                         && colorIds.Contains(x.ColorId)
+                         && x.FactoryId == factoryId && x.IsActive == true)
+                .Select(x => new { x.StyleId, x.PoId, x.ColorId, x.SizeId, x.PlannedQty, x.VersionId })
+                .ToListAsync();
+
+            var sizeIdDict = rawItems
+                .GroupBy(x => (x.StyleId, x.PoId, x.ColorId, x.VersionId))
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.GroupBy(x => x.SizeId)
+                          .Select(sg => new SizeQtyDto(sg.Key, sg.Sum(x => x.PlannedQty)))
+                          .ToList());
+
+            return plans
                 .GroupBy(p => new { p.VersionId, p.StyleId, p.PoId, p.ColorId })
                 .Select(g =>
                 {
                     var first = g.First();
                     var resolvedStyleName = itemNameMap.TryGetValue(first.StyleId, out var sName) ? sName : string.Empty;
                     var resolvedPoName = poNameMap.TryGetValue(first.PoId, out var pName) ? pName : string.Empty;
+
                     var key = (first.VersionId, first.FactoryId, first.StyleId, first.PoId, first.ColorId);
                     var resolvedTargetDeliveryDate = targetDeliveryMap.TryGetValue(key, out var tDate) ? tDate : (DateOnly?)null;
-                    // Chỉ lấy các dòng có LineNumber == null (đại diện KH tổng gốc)
-                    var dongGoc = g.Where(p => string.IsNullOrWhiteSpace(p.LineNumber)).ToList();
 
-                    // Chỉ lấy các dòng đã gán tổ
+                    // Dòng LineNumber == null: đại diện KH tổng gốc. Dòng còn lại: đã gán tổ.
+                    var dongGoc = g.Where(p => string.IsNullOrWhiteSpace(p.LineNumber)).ToList();
                     var dongDaGan = g.Where(p => !string.IsNullOrWhiteSpace(p.LineNumber)).ToList();
 
                     var sizeKey = (first.StyleId, first.PoId, first.ColorId, first.VersionId);
@@ -4212,36 +5303,26 @@ namespace EquipManagementAPI.Controllers
                         : new List<SizeQtyDto>();
 
                     var khTong = dongGoc.Count > 0
-            ? dongGoc.Max(p => p.TotalPlannedQty)   // dùng Max thay vì Sum để tránh cộng dồn nếu có dòng gốc trùng do bug dữ liệu
-            : dongDaGan
-                .GroupBy(p => p.OperationCode, StringComparer.OrdinalIgnoreCase)
-                .Select(gr => gr.Sum(p => p.TotalPlannedQty))
-                .DefaultIfEmpty(0)
-                .Max();
-                    var conLaiChuaPhanBo = dongGoc.Sum(p => p.TotalPlannedQty); // giữ nguyên nếu chỉ có đúng 1 dòng gốc
-                    //        var daPhanBo = khTong - conLaiChuaPhanBo;
-                    string trangThai;
-                    if (dongDaGan.Count > 0)
-                    {
-                        // Đã có ít nhất 1 dòng được gán tổ => coi là đã phân bổ,
-                        // bất kể daPhanBo tính ra có bằng 0 hay không (tránh sai do bug dữ liệu)
-                        trangThai = "da_phan_bo";
-                    }
-                    else
-                    {
-                        trangThai = "chua_phan_to";
-                    }
-                   
+                        ? dongGoc.Max(p => p.TotalPlannedQty)   // Max thay vì Sum để tránh cộng dồn nếu có dòng gốc trùng do bug dữ liệu
+                        : dongDaGan
+                            .GroupBy(p => p.OperationCode, StringComparer.OrdinalIgnoreCase)
+                            .Select(gr => gr.Sum(p => p.TotalPlannedQty))
+                            .DefaultIfEmpty(0)
+                            .Max();
 
-                    var danhSachToDaGan = g
-                        .Where(p => !string.IsNullOrWhiteSpace(p.LineNumber))
+                    var conLaiChuaPhanBo = dongGoc.Sum(p => p.TotalPlannedQty);
+
+                    // Đã có ít nhất 1 dòng gán tổ => coi là đã phân bổ
+                    var trangThai = dongDaGan.Count > 0 ? "da_phan_bo" : "chua_phan_to";
+
+                    var danhSachToDaGan = dongDaGan
                         .Select(p => new
                         {
                             factoryPlanId = p.Id,
                             lineNumber = p.LineNumber,
                             operationCode = p.OperationCode,
                             soLuong = p.TotalPlannedQty,
-                            cmPrice = ResolveCmPrice(p.StyleId, p.OperationCode),
+                            cmPrice = resolveCmPrice(p.StyleId, p.OperationCode),
                         })
                         .ToList();
 
@@ -4261,206 +5342,288 @@ namespace EquipManagementAPI.Controllers
                         conLaiChuaPhanBo,
                         trangThai,
                         danhSachToDaGan,
-                        cmPrice = ResolveCmPrice(first.StyleId, null), // giá tổng hiển thị ở header dòng
+                        cmPrice = resolveCmPrice(first.StyleId, null),   // giá tổng hiển thị ở header dòng
                         status = first.Status,
                     };
                 })
                 .OrderBy(o => o.styleId)
                 .ThenBy(o => o.poId)
+                .Cast<object>()
                 .ToList();
+        }
+
+
+        // ---------------------------------------------------------------------------
+        // 4) TAB KẾ HOẠCH SẢN XUẤT
+        // ---------------------------------------------------------------------------
+
+        private async Task<List<object>> BuildPlanLinesAsync(
+            string factoryId, DateOnly from, DateOnly to, string? lineNumber, string? styleName)
+        {
+            // Tab Kế hoạch sản xuất: chỉ các dòng ĐÃ gán Tổ, lọc theo ProductionStartDate nằm trong [from, to].
+            // (KHÔNG lọc theo ngày giao hàng như tab Đơn hàng.)
+            var planQuery = await CreatePlanQueryAsync(factoryId, lineNumber, styleName, onlyAssigned: true);
+
+            var planLinePlans = await planQuery
+                .Where(p =>
+                    // Case đã phân kế hoạch ngày: lọc theo khoảng [ProductionStartDate, ProductionEndDate] giao với kỳ đang xem.
+                    (p.ProductionStartDate != null
+                     && p.ProductionEndDate != null
+                     && p.ProductionStartDate <= to
+                     && p.ProductionEndDate >= from)
+                    // Case đã phân tổ nhưng chưa phân kế hoạch ngày: vẫn hiển thị để user phân ngày.
+                    || (p.ProductionStartDate == null && p.ProductionEndDate == null && p.LineNumber != null))
+                .OrderBy(p => p.LineNumber)
+                .ThenBy(p => p.StyleId)
+                .ToListAsync();
+
+            if (planLinePlans.Count == 0) return new List<object>();
+
+            // Ngày giao hàng ở tab này CHỈ để hiển thị (không dùng để lọc) -> tra riêng, không giới hạn theo kỳ.
+            var dlVersionIds = planLinePlans.Select(p => p.VersionId).Distinct().ToList();
+            var dlStyleIds = planLinePlans.Select(p => p.StyleId).Distinct().ToList();
+            var dlPoIds = planLinePlans.Select(p => p.PoId).Distinct().ToList();
+            var dlColorIds = planLinePlans.Select(p => p.ColorId).Distinct().ToList();
+
+            var deliveryGroups = await _context.MesProductionOrderItems
+                .AsNoTracking()
+                .Where(x => x.FactoryId == factoryId
+                         && dlVersionIds.Contains(x.VersionId)
+                         && dlStyleIds.Contains(x.StyleId)
+                         && dlPoIds.Contains(x.PoId)
+                         && dlColorIds.Contains(x.ColorId))
+                .GroupBy(x => new { x.VersionId, x.FactoryId, x.StyleId, x.PoId, x.ColorId })
+                .Select(g => new
+                {
+                    g.Key.VersionId,
+                    g.Key.FactoryId,
+                    g.Key.StyleId,
+                    g.Key.PoId,
+                    g.Key.ColorId,
+                    TargetDeliveryDate = g.Max(x => x.TargetDeliveryDate)
+                })
+                .ToListAsync();
+
+            var targetDeliveryMap = new Dictionary<(Guid VersionId, string FactoryId, string StyleId, string PoId, string ColorId), DateOnly?>();
+            foreach (var g in deliveryGroups)
+                targetDeliveryMap[(g.VersionId, g.FactoryId, g.StyleId, g.PoId, g.ColorId)] = g.TargetDeliveryDate;
+
+            var fromDt = from.ToDateTime(TimeOnly.MinValue);
+            var toDt = to.ToDateTime(TimeOnly.MaxValue);
+            var planIds = planLinePlans.Select(p => p.Id).ToList();   // giờ chỉ gồm dòng ĐÃ có tổ (trước đây gồm cả dòng gốc)
+
+            // ---- Tên Style / PO / giá CM ----
+            var itemNameMap = await LoadItemNamesAsync(planLinePlans.Select(p => p.StyleId));
+            var poNameMap = new Dictionary<string, string>();
+            await EnsurePoNamesAsync(poNameMap, planLinePlans.Select(p => p.PoId));
+            var resolveCmPrice = await BuildCmPriceResolverAsync(planLinePlans.Select(p => p.StyleId), toDt);
+
+            // ---- KH theo ngày (trong kỳ) ----
+            var planLinesRaw = await _context.MesFactoryPlanLines.AsNoTracking()
+                .Where(l => planIds.Contains(l.FactoryPlanId) && l.WorkDate >= fromDt && l.WorkDate <= toDt)
+                .ToListAsync();
+            var teamTotalQtyMap = ToDailyMap(planLinesRaw, l => l.FactoryPlanId, l => l.WorkDate, l => l.PlannedQty);
+
+            // ---- Thực hiện theo ngày (trong kỳ) ----
+            var qlclByPlanRaw = await _context.qualityManagementSessions.AsNoTracking()
+                .Where(q => q.PlanId != null
+                         && planIds.Contains(q.PlanId.Value)
+                         && q.InspectionDate >= fromDt && q.InspectionDate <= toDt
+                         && q.Status == 1 && q.OperationType == "1")
+                .Select(q => new { PlanId = q.PlanId!.Value, q.InspectionDate, q.PassOutputQuantity })
+                .ToListAsync();
+            var actualQtyByDateMap = ToDailyMap(qlclByPlanRaw, q => q.PlanId, q => q.InspectionDate, q => q.PassOutputQuantity);
+
+            // ---- KH của hôm nay (không giới hạn theo kỳ đang xem) — dùng tính trạng thái "đang sản xuất" ----
+            var today = DateTime.Today;
+            var todayPlannedQtyMap = await _context.MesFactoryPlanLines
+                .Where(l => planIds.Contains(l.FactoryPlanId) && l.WorkDate.Date == today)
+                .GroupBy(l => l.FactoryPlanId)
+                .Select(g => new { FactoryPlanId = g.Key, Qty = g.Sum(x => x.PlannedQty) })
+                .ToDictionaryAsync(x => x.FactoryPlanId, x => x.Qty);
+
+            // ---- Thực hiện LŨY KẾ đến hôm nay theo (Tổ, Style, Màu) — dùng tính trạng thái ----
+            var styleIdsForActual = planLinePlans.Select(p => p.StyleId).Distinct().ToList();
+            var colorIdsForActual = planLinePlans.Select(p => p.ColorId).Distinct().ToList();
+            var teamIds = planLinePlans.Select(p => p.LineNumber!).Distinct().ToList();
+            var todayEndDt = DateTime.Today.AddDays(1).AddTicks(-1);
+
+            var qlclRaw = await _context.qualityManagementSessions
+                .Where(q => styleIdsForActual.Contains(q.ItemNo)
+                         && colorIdsForActual.Contains(q.ColorNo)
+                         && q.InspectionDate <= todayEndDt
+                         && teamIds.Contains(q.WorkShiftCode)
+                         && q.WorkCenterCode == factoryId && q.Status == 1)
+                .Select(q => new { q.WorkShiftCode, q.ItemNo, q.ColorNo, q.PassOutputQuantity })
+                .ToListAsync();
+
+            var actualQtyMap = qlclRaw
+                .GroupBy(q => (WorkShift: q.WorkShiftCode, StyleId: q.ItemNo, ColorId: q.ColorNo))
+                .ToDictionary(g => g.Key, g => g.Sum(x => x.PassOutputQuantity));
 
             // =========================================================
-            // TAB KẾ HOẠCH: chỉ các dòng ĐÃ có tổ, kèm lịch theo ngày
+            // PO NGUỒN ĐÃ GỘP vào các dòng hiện tại (đã bỏ điều kiện IsActive — nguồn luôn IsActive=false)
             // =========================================================
-            // ---- Lookup các plan CHA (PO gốc trước khi tách) cho các dòng đã gán tổ có ParentPlanId ----
+            var mergedSourcePlans = await _context.MesFactoryPlans
+                .Where(s => s.ParentPlanId != null
+                         && planIds.Contains(s.ParentPlanId.Value)
+                         && s.LineNumber != null)
+                .ToListAsync();
+
+            var mergedSourceByParentId = mergedSourcePlans
+                .GroupBy(s => s.ParentPlanId!.Value)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            await EnsurePoNamesAsync(poNameMap, mergedSourcePlans.Select(s => s.PoId));
+
+            var mergedSourcePlanIds = mergedSourcePlans.Select(s => s.Id).ToList();
+
+            var mergedSourceLinesRaw = mergedSourcePlanIds.Count > 0
+                ? await _context.MesFactoryPlanLines
+                    .Where(l => mergedSourcePlanIds.Contains(l.FactoryPlanId) && l.WorkDate >= fromDt && l.WorkDate <= toDt)
+                    .ToListAsync()
+                : new List<MesFactoryPlanLine>();
+            var mergedSourceDailyQtyMap = ToDailyMap(mergedSourceLinesRaw, l => l.FactoryPlanId, l => l.WorkDate, l => l.PlannedQty);
+
+            var mergedSourceQlclRaw = await _context.qualityManagementSessions
+                .Where(q => q.PlanId != null
+                         && mergedSourcePlanIds.Contains(q.PlanId.Value)
+                         && q.InspectionDate >= fromDt && q.InspectionDate <= toDt
+                         && q.Status == 0)
+                .Select(q => new { PlanId = q.PlanId!.Value, q.InspectionDate, q.PassOutputQuantity })
+                .ToListAsync();
+            var mergedSourceActualByDateMap = ToDailyMap(mergedSourceQlclRaw, q => q.PlanId, q => q.InspectionDate, q => q.PassOutputQuantity);
+
+            List<object> ResolveMergedFromPos(Guid planId)
+            {
+                if (!mergedSourceByParentId.TryGetValue(planId, out var sources))
+                    return new List<object>();
+
+                return sources
+                    .OrderBy(s => s.PoId)
+                    .Select(s => new
+                    {
+                        factoryPlanId = s.Id,
+                        poId = s.PoId,
+                        poName = poNameMap.TryGetValue(s.PoId, out var pn) ? pn : string.Empty,
+                        planCode = s.PlanCode,
+                        lineNumber = s.LineNumber,
+                        operationCode = s.OperationCode,
+                        totalPlannedQty = s.TotalPlannedQty,
+                        status = s.Status,          // "merged_source"
+                        mergedAt = s.MergedAt,
+                        mergedBy = s.MergedBy,
+                        dailyPlannedQty = mergedSourceDailyQtyMap.TryGetValue(s.Id, out var qtyByDate)
+                            ? qtyByDate : new Dictionary<string, int>(),
+                        dailyActualQty = mergedSourceActualByDateMap.TryGetValue(s.Id, out var actualByDate)
+                            ? actualByDate : new Dictionary<string, int>(),
+                        hasActualData = mergedSourceActualByDateMap.ContainsKey(s.Id),
+                    })
+                    .ToList<object>();
+            }
+
+            // =========================================================
+            // PO GỐC ĐÃ TÁCH ra các dòng hiện tại (đã bỏ điều kiện IsActive — PO gốc luôn IsActive=false)
+            // =========================================================
             var parentPlanIds = planLinePlans
                 .Where(p => p.ParentPlanId != null)
                 .Select(p => p.ParentPlanId!.Value)
                 .Distinct()
                 .ToList();
-            //Bỏ isactive=true
+
             var parentPlansMap = parentPlanIds.Count > 0
                 ? await _context.MesFactoryPlans
                     .Where(pp => parentPlanIds.Contains(pp.Id))
                     .ToDictionaryAsync(pp => pp.Id)
                 : new Dictionary<Guid, MesFactoryPlan>();
 
-            // Bổ sung PoName / StyleName cho PO gốc (phòng trường hợp PoId/StyleId gốc chưa có trong map hiện tại)
-            var parentPoIds = parentPlansMap.Values
-                .Select(pp => pp.PoId)
-                .Distinct()
-                .Where(id => !poNameMap.ContainsKey(id) || string.IsNullOrWhiteSpace(poNameMap[id]))
-                .ToList();
+            await EnsurePoNamesAsync(poNameMap, parentPlansMap.Values.Select(pp => pp.PoId));
 
-            if (parentPoIds.Count > 0)
-            {
-                var parentPoNameFromHeader = await _context.SalesOrderHeader
-                    .Where(s => parentPoIds.Contains(s.No))
-                    .Select(s => new { s.No, s.POName })
-                    .ToDictionaryAsync(s => s.No, s => s.POName ?? string.Empty);
-
-                foreach (var kv in parentPoNameFromHeader)
-                    poNameMap[kv.Key] = kv.Value;
-
-                var stillMissingParentPo = parentPoIds
-                    .Where(id => !poNameMap.TryGetValue(id, out var n) || string.IsNullOrWhiteSpace(n))
-                    .ToList();
-
-                if (stillMissingParentPo.Count > 0)
-                {
-                    var fallback = await _context.MesProductionOrderItems
-                        .Where(i => stillMissingParentPo.Contains(i.PoId) && !string.IsNullOrEmpty(i.POName))
-                        .GroupBy(i => i.PoId)
-                        .Select(g => new
-                        {
-                            PoId = g.Key,
-                            POName = g.OrderByDescending(x => x.CreatedAt).Select(x => x.POName).First()
-                        })
-                        .ToDictionaryAsync(x => x.PoId, x => x.POName ?? string.Empty);
-
-                    foreach (var kv in fallback)
-                        poNameMap[kv.Key] = kv.Value;
-                }
-            }
-
-            var parentStyleIds = parentPlansMap.Values
+            var missingParentStyleIds = parentPlansMap.Values
                 .Select(pp => pp.StyleId)
-                .Distinct()
                 .Where(id => !itemNameMap.ContainsKey(id))
+                .Distinct()
                 .ToList();
-
-            if (parentStyleIds.Count > 0)
+            if (missingParentStyleIds.Count > 0)
             {
-                var parentItemNames = await _context.Item
-                    .Where(i => parentStyleIds.Contains(i.No))
-                    .Select(i => new { i.No, i.Name })
-                    .ToDictionaryAsync(i => i.No, i => i.Name ?? string.Empty);
-
-                foreach (var kv in parentItemNames)
+                foreach (var kv in await LoadItemNamesAsync(missingParentStyleIds))
                     itemNameMap[kv.Key] = kv.Value;
             }
 
-            // =========================================================
-            // Lookup planned_qty & actual theo NGÀY cho PO GỐC (trước khi tách) — dùng cho splitFromPo
-            // Cùng khoảng [monthStart, toMonthEnd] để nhất quán với mergedSource...
-            // =========================================================
             var parentPlanLinesRaw = parentPlanIds.Count > 0
                 ? await _context.MesFactoryPlanLines
-                    .Where(l => parentPlanIds.Contains(l.FactoryPlanId)
-                             && l.WorkDate >= monthStartDt
-                             && l.WorkDate <= toMonthEndDt)
+                    .Where(l => parentPlanIds.Contains(l.FactoryPlanId) && l.WorkDate >= fromDt && l.WorkDate <= toDt)
                     .ToListAsync()
                 : new List<MesFactoryPlanLine>();
-
-            var parentPlanDailyQtyMap = parentPlanLinesRaw
-                .GroupBy(l => l.FactoryPlanId)
-                .ToDictionary(
-                    g => g.Key,
-                    g => g
-                        .GroupBy(l => l.WorkDate.Date)
-                        .ToDictionary(
-                            dg => dg.Key.ToString("yyyy-MM-dd"),
-                            dg => dg.Sum(x => x.PlannedQty)
-                        )
-                );
+            var parentPlanDailyQtyMap = ToDailyMap(parentPlanLinesRaw, l => l.FactoryPlanId, l => l.WorkDate, l => l.PlannedQty);
 
             var parentPlanQlclRaw = await _context.qualityManagementSessions
                 .Where(q => q.PlanId != null
                          && parentPlanIds.Contains(q.PlanId.Value)
-                         && q.InspectionDate >= monthStartDt
-                         && q.InspectionDate <= toMonthEndDt && q.Status==1)
-                .Select(q => new { PlanId = q.PlanId.Value, q.InspectionDate, q.PassOutputQuantity })
+                         && q.InspectionDate >= fromDt && q.InspectionDate <= toDt
+                         && q.Status == 0)
+                .Select(q => new { PlanId = q.PlanId!.Value, q.InspectionDate, q.PassOutputQuantity })
                 .ToListAsync();
+            var parentPlanActualByDateMap = ToDailyMap(parentPlanQlclRaw, q => q.PlanId, q => q.InspectionDate, q => q.PassOutputQuantity);
 
-            var parentPlanActualByDateMap = parentPlanQlclRaw
-                .GroupBy(q => q.PlanId)
-                .ToDictionary(
-                    g => g.Key,
-                    g => g
-                        .GroupBy(x => x.InspectionDate.Date)
-                        .ToDictionary(
-                            dg => dg.Key.ToString("yyyy-MM-dd"),
-                            dg => dg.Sum(x => x.PassOutputQuantity)
-                        )
-                );
-
-            // Đếm số dòng (tổ) đã được tách ra từ cùng 1 plan cha -> dùng cho soDongDaTach
+            // Số dòng (tổ) đã được tách ra từ cùng 1 plan cha
             var splitSiblingCountMap = planLinePlans
                 .Where(p => p.ParentPlanId != null)
                 .GroupBy(p => p.ParentPlanId!.Value)
                 .ToDictionary(g => g.Key, g => g.Count());
 
-            var planLines = planLinePlans
+            // =========================================================
+            // PROJECTION
+            // =========================================================
+            return planLinePlans
                 .Select(p =>
                 {
                     var resolvedStyleName = itemNameMap.TryGetValue(p.StyleId, out var sName) ? sName : string.Empty;
                     var resolvedPoName = poNameMap.TryGetValue(p.PoId, out var pName) ? pName : string.Empty;
-                    
+
                     var key = (p.VersionId, p.FactoryId, p.StyleId, p.PoId, p.ColorId);
                     var resolvedTargetDeliveryDate = targetDeliveryMap.TryGetValue(key, out var tDate) ? tDate : (DateOnly?)null;
-                    var resolvedTeamTotalQty = teamTotalQtyMap.TryGetValue(p.Id, out var qtyByDate)
-                        ? qtyByDate
-                        : new Dictionary<string, int>();
-                    // === NEW: PassOutput theo ngày (Thực hiện) ===
-                    var resolvedActualQtyByDate = actualQtyByDateMap.TryGetValue(p.Id, out var actualByDate)
-                        ? actualByDate
-                        : new Dictionary<string, int>();
-                    // ==== tính status ====
-                    var todayPlannedQty = todayPlannedQtyMap.TryGetValue(p.Id, out var tpq) ? tpq : 0;
 
+                    var resolvedTeamTotalQty = teamTotalQtyMap.TryGetValue(p.Id, out var qtyByDate)
+                        ? qtyByDate : new Dictionary<string, int>();
+                    var resolvedActualQtyByDate = actualQtyByDateMap.TryGetValue(p.Id, out var actualByDate)
+                        ? actualByDate : new Dictionary<string, int>();
+
+                    // ---- Trạng thái ----
+                    var todayPlannedQty = todayPlannedQtyMap.TryGetValue(p.Id, out var tpq) ? tpq : 0;
                     var actualKey = (WorkShift: p.LineNumber, StyleId: p.StyleId, ColorId: p.ColorId);
                     var actualQty = actualQtyMap.TryGetValue(actualKey, out var aq) ? aq : 0;
-
                     var remainingQty = p.TotalPlannedQty - actualQty;
 
                     string computedStatus;
-                    if (actualQty >= p.TotalPlannedQty)
-                    {
-                        computedStatus = "hoan_thanh";       // Hoàn thành
-                    }
-                    else if (todayPlannedQty > 0)
-                    {
-                        computedStatus = "dang_san_xuat";    // Đang sản xuất
-                    }
-                    else if (remainingQty > 0)
-                    {
-                        computedStatus = "tam_dung";         // Tạm dừng
-                    }
-                    else
-                    {
-                        computedStatus = p.Status; // fallback hiếm khi xảy ra
-                    }
-                    // ===== MỚI: xác định dòng này có phải là kết quả của việc TÁCH PO gốc không =====
+                    if (actualQty >= p.TotalPlannedQty) computedStatus = "hoan_thanh";
+                    else if (todayPlannedQty > 0) computedStatus = "dang_san_xuat";
+                    else if (remainingQty > 0) computedStatus = "tam_dung";
+                    else computedStatus = p.Status;
+
+                    // ---- Kết quả của việc TÁCH PO gốc? ----
                     bool isSplited = p.ParentPlanId != null && parentPlansMap.ContainsKey(p.ParentPlanId.Value);
 
                     object? splitFromPo = null;
                     if (isSplited)
                     {
                         var parentPlan = parentPlansMap[p.ParentPlanId!.Value];
-                        var parentPoName = poNameMap.TryGetValue(parentPlan.PoId, out var ppn) ? ppn : string.Empty;
-                        var parentStyleName = itemNameMap.TryGetValue(parentPlan.StyleId, out var psn) ? psn : string.Empty;
-                        var parentDailyPlannedQty = parentPlanDailyQtyMap.TryGetValue(parentPlan.Id, out var pQtyByDate)
-                           ? pQtyByDate
-                           : new Dictionary<string, int>();
-                        var parentDailyActualQty = parentPlanActualByDateMap.TryGetValue(parentPlan.Id, out var pActualByDate)
-                            ? pActualByDate
-                            : new Dictionary<string, int>();
-
                         splitFromPo = new
                         {
-                            factoryPlanId = parentPlan.Id,          // id của plan gốc
-                            poId = parentPlan.PoId,                 // PO GỐC (đúng yêu cầu)
-                            poName = parentPoName,
+                            factoryPlanId = parentPlan.Id,
+                            poId = parentPlan.PoId,
+                            poName = poNameMap.TryGetValue(parentPlan.PoId, out var ppn) ? ppn : string.Empty,
                             styleId = parentPlan.StyleId,
-                            styleName = parentStyleName,
+                            styleName = itemNameMap.TryGetValue(parentPlan.StyleId, out var psn) ? psn : string.Empty,
                             colorId = parentPlan.ColorId,
                             versionId = parentPlan.VersionId,
                             planCode = parentPlan.PlanCode,
-                            khTongGoc = parentPlan.TotalPlannedQty,  // tổng KH của PO gốc trước khi tách
+                            khTongGoc = parentPlan.TotalPlannedQty,
                             soDongDaTach = splitSiblingCountMap.TryGetValue(parentPlan.Id, out var cnt) ? cnt : 1,
-                            // ===== MỚI: KH & thực tế theo ngày của PO gốc trước khi tách =====
-                            dailyPlannedQty = parentDailyPlannedQty,
-                            dailyActualQty = parentDailyActualQty,
+                            dailyPlannedQty = parentPlanDailyQtyMap.TryGetValue(parentPlan.Id, out var pQtyByDate)
+                                ? pQtyByDate : new Dictionary<string, int>(),
+                            dailyActualQty = parentPlanActualByDateMap.TryGetValue(parentPlan.Id, out var pActualByDate)
+                                ? pActualByDate : new Dictionary<string, int>(),
                             hasActualData = parentPlanActualByDateMap.ContainsKey(parentPlan.Id),
                         };
                     }
@@ -4477,33 +5640,26 @@ namespace EquipManagementAPI.Controllers
                         poName = resolvedPoName,
                         colorId = p.ColorId,
                         colorName = p.ColorId,
-                        //productionStartDate = p.ProductionStartDate,
-                        //productionEndDate = p.ProductionEndDate,
-                        //targetDeliveryDate = resolvedTargetDeliveryDate,
                         totalPlannedQty = p.TotalPlannedQty,
                         teamTotalQty = resolvedTeamTotalQty,
                         teamActualQty = resolvedActualQtyByDate,
                         operationCode = p.OperationCode,
-                        cmPrice = ResolveCmPrice(p.StyleId, p.OperationCode),
+                        cmPrice = resolveCmPrice(p.StyleId, p.OperationCode),
                         status = computedStatus,
-                           // ===== MỚI: các PO gốc đã gộp vào dòng này (nếu có) =====
                         isMerged = mergedSourceByParentId.ContainsKey(p.Id),
                         mergedFromPos = ResolveMergedFromPos(p.Id),
-                        isSplited = isSplited,
-                        splitFromPo = splitFromPo,
+                        isSplited,
+                        splitFromPo,
                         targetDeliveryDate = resolvedTargetDeliveryDate?.ToString("dd-MM-yyyy") ?? string.Empty,
                     };
                 })
                 .OrderBy(pl => pl.lineNumber)
                 .ThenBy(pl => pl.styleId)
+                .Cast<object>()
                 .ToList();
-
-            return Ok(new
-            {
-                success = true,
-                data = new { orders, planLines }
-            });
         }
+        //Helper
+
         private class StyleOperationKeyComparer : IEqualityComparer<(string StyleId, string OperationCode)>
         {
             public bool Equals((string StyleId, string OperationCode) x, (string StyleId, string OperationCode) y)
@@ -4515,114 +5671,7 @@ namespace EquipManagementAPI.Controllers
                     obj.StyleId?.ToUpperInvariant(),
                     obj.OperationCode?.ToUpperInvariant());
         }
-        //        [HttpGet("factory-plans-v2-view")]
-        //        public async Task<IActionResult> GetFactoryPlans_V2_View(
-        //    [FromQuery] string factoryId,
-        //    [FromQuery] int year,
-        //    [FromQuery] int month,
-        //    [FromQuery] string? lineNumber = null,
-        //    [FromQuery] string? styleName = null)
-        //        {
-        //            if (string.IsNullOrWhiteSpace(factoryId))
-        //                return BadRequest(new { success = false, message = "Vui lòng truyền factoryId." });
-        //            if (year <= 0 || month < 1 || month > 12)
-        //                return BadRequest(new { success = false, message = "year và month không hợp lệ." });
-
-        //            var monthStart = new DateOnly(year, month, 1);
-        //            var monthEnd = monthStart.AddMonths(1).AddDays(-1);
-        //            var monthStartDt = monthStart.ToDateTime(TimeOnly.MinValue);
-        //            var monthEndDt = monthEnd.ToDateTime(new TimeOnly(23, 59, 59));
-
-        //            // Lọc plans: factory_id khớp + khoảng SX giao với tháng
-        //            var query = _context.MesFactoryPlans
-        //                .Where(p => p.FactoryId == factoryId
-        //                                 && p.ProductionStartDate <= monthEnd
-        //                 && p.ProductionEndDate >= monthStart);
-
-        //    if (!string.IsNullOrWhiteSpace(lineNumber))
-        //        query = query.Where(p => p.LineNumber == lineNumber);
-
-        //    var plans = await query.OrderBy(p => p.LineNumber).ThenBy(p => p.StyleId).ToListAsync();
-        //        var planIds = plans.Select(p => p.Id).ToList();
-
-        //        // Chỉ load lines trong tháng
-        //        var lines = await _context.MesFactoryPlanLines
-        //            .Where(l => planIds.Contains(l.FactoryPlanId)
-        //                     && l.CreatedAt >= monthStartDt
-        //                     && l.CreatedAt <= monthEndDt)
-        //            .ToListAsync();
-
-        //        var linesByPlanId = lines
-        //            .GroupBy(l => l.FactoryPlanId)
-        //            .ToDictionary(g => g.Key, g => g.ToList());
-
-        //        // Lấy FinishName từ production_order_items — join theo (VersionId, FactoryId, StyleId, PoId, ColorId)
-        //        var versionIds = plans.Select(p => p.VersionId).Distinct().ToList();
-        //        var styleIds = plans.Select(p => p.StyleId).Distinct().ToList();
-
-        //        var styleNameLookup = await _context.SalesOrderLineFactoryPlans
-        //            .Where(x => styleIds.Contains(x.ItemNo))
-        //            .Select(x => new
-        //            {
-        //                x.ItemNo,
-        //                x.FinishName // hoặc ItemName nếu cột tên style thực sự là ItemName
-        //            })
-        //            .Distinct()
-        //            .ToListAsync();
-
-        //        var styleNameMap = styleNameLookup
-        //            .GroupBy(x => x.ItemNo)
-        //            .ToDictionary(
-        //                g => g.Key,
-        //                g => g.First().FinishName ?? string.Empty
-        //            );
-        //    if (!string.IsNullOrWhiteSpace(styleName))
-        //    {
-        //        var styleNameLower = styleName.Trim().ToLowerInvariant();
-
-        //        plans = plans.Where(p =>
-        //            styleNameMap.TryGetValue(p.StyleId, out var name)
-        //            && name.ToLowerInvariant().Contains(styleNameLower)
-        //        ).ToList();
-        //    }
-        //    // Tổng total_planned_qty theo từng line_number (tính lại sau khi lọc styleName)
-        //    var totalByTeam = plans
-        //        .GroupBy(p => p.LineNumber)
-        //        .ToDictionary(g => g.Key, g => g.Sum(p => p.TotalPlannedQty));
-
-        //    var data = plans.Select(p =>
-        //    {
-        //        var pLines = linesByPlanId.TryGetValue(p.Id, out var ls) ? ls : new List<MesFactoryPlanLine>();
-        //        var monthlyQty = pLines.Sum(l => l.PlannedQty);
-
-
-        //        var finishKey = $"{p.VersionId}|{p.FactoryId}|{p.StyleId}|{p.PoId}|{p.ColorId}";
-        //        //var styleName = finishNameMap.TryGetValue(finishKey, out var fn) ? fn.FinishName : string.Empty;
-        //        //var poName    = finishNameMap.TryGetValue(finishKey, out var fn2) ? fn2.POName : string.Empty;
-        //        var styleName = styleNameMap.TryGetValue(p.StyleId, out var style) ? style : string.Empty;
-        //        return new
-        //        {
-        //            id = p.Id,
-        //            planCode = p.PlanCode,
-        //            factoryId = p.FactoryId,
-        //            lineNumber = p.LineNumber,
-        //            styleId = p.StyleId,
-        //            styleName,
-        //            poId = p.PoId,
-        //            //poName ,
-        //            colorId = p.ColorId,
-        //            productionStartDate = p.ProductionStartDate,
-        //            productionEndDate = p.ProductionEndDate,
-        //            totalPlannedQty = p.TotalPlannedQty,
-        //            teamTotalQty = totalByTeam.TryGetValue(p.LineNumber, out var t) ? t : 0,
-        //            monthlyPlannedQty = monthlyQty,
-        //        };
-        //    }).ToList();
-
-        //    return Ok(new { success = true, data
-        //});
-        //}
-        //
+        
         [HttpPost("factory-plans-v2-save")]
         public async Task<IActionResult> SaveFactoryPlanAssignments([FromBody] SaveFactoryPlanAssignmentRequest request)
         {
@@ -4633,16 +5682,16 @@ namespace EquipManagementAPI.Controllers
                 return BadRequest(new { success = false, message = "Thiếu thông tin factoryId/year/month." });
 
             var overPlannedErrors = new List<string>();
-            foreach (var row in request.Rows)
-            {
-                var totalDaily = row.DailyQuantities?.Sum(d => d.PlannedQty) ?? 0;
-                if (totalDaily > row.TotalPlannedQty)
-                {
-                    overPlannedErrors.Add(
-                        $"Style={row.StyleId}, PO={row.PoId}, Màu={row.ColorId}: " +
-                        $"Tổng KH theo ngày ({totalDaily:N0}) vượt quá KH tổng ({row.TotalPlannedQty:N0}).");
-                }
-            }
+            //foreach (var row in request.Rows)
+            //{
+            //    var totalDaily = row.DailyQuantities?.Sum(d => d.PlannedQty) ?? 0;
+            //    if (totalDaily > row.TotalPlannedQty)
+            //    {
+            //        overPlannedErrors.Add(
+            //            $"Style={row.StyleId}, PO={row.PoId}, Màu={row.ColorId}: " +
+            //            $"Tổng KH theo ngày ({totalDaily:N0}) vượt quá KH tổng ({row.TotalPlannedQty:N0}).");
+            //    }
+            //}
             if (overPlannedErrors.Any())
             {
                 return BadRequest(new
@@ -4654,6 +5703,8 @@ namespace EquipManagementAPI.Controllers
             }
             var monthStart = new DateOnly(request.Year, request.Month, 1);
             var monthEnd = monthStart.AddMonths(1).AddDays(-1);
+
+            var currentUser = request.UserId;
 
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
@@ -4675,7 +5726,7 @@ namespace EquipManagementAPI.Controllers
                             PoId = row.PoId,
                             ColorId = row.ColorId,
                             Status = "chua_san_xuat",
-                            CreatedBy = User?.Identity?.Name ?? "system",
+                            CreatedBy = currentUser,
                             CreatedAt = DateTime.Now,
                             IsActive = true
                         };
@@ -4696,18 +5747,7 @@ namespace EquipManagementAPI.Controllers
                     // Update các field còn thiếu / gán tổ
                     //plan.LineNumber = row.LineNumber;
                     plan.TotalPlannedQty = row.TotalPlannedQty;
-
-                    //if (plan.Status == "APPROVED")
-                    //{
-                    //    plan.Status = "DRAFT";
-                    //    plan.ApprovedBy = null;
-                    //    plan.ApprovedAt = null;
-                    //}
-                    //else if (plan.Status == "DRAFT" || string.IsNullOrEmpty(plan.Status))
-                    //{
-                    //    plan.Status = "ACTIVE";
-                    //}
-
+                    plan.UpdatedBy = currentUser;
                     plan.UpdatedAt = DateTime.Now;
 
                     await _context.SaveChangesAsync();
@@ -4741,6 +5781,7 @@ namespace EquipManagementAPI.Controllers
                                         existing.PlannedQty = 0;
                                         existing.RemainingQty = 0 - existing.DemandCreatedQty; // có thể âm để biết đang vượt nhu cầu
                                         existing.UpdatedAt = DateTime.Now;
+                                        existing.UpdatedBy = currentUser;
                                     }
                                 }
                                 // Không tồn tại và planned = 0 -> bỏ qua, không tạo mới
@@ -4753,6 +5794,7 @@ namespace EquipManagementAPI.Controllers
                                 existing.PlannedQty = d.PlannedQty;
                                 existing.RemainingQty = d.PlannedQty - existing.DemandCreatedQty;
                                 existing.UpdatedAt = DateTime.Now;
+                                existing.UpdatedBy = currentUser;
                             }
                             else
                             {
@@ -4764,8 +5806,9 @@ namespace EquipManagementAPI.Controllers
                                     DemandCreatedQty = 0,
                                     RemainingQty = d.PlannedQty,
                                     WorkDate = dayDt,
-                                    UpdatedAt = DateTime.Now
-                                });
+                                    UpdatedAt = DateTime.Now,
+                                    UpdatedBy = currentUser
+                            });
                             }
                         }
 
@@ -4784,14 +5827,19 @@ namespace EquipManagementAPI.Controllers
                         }
                         else
                         {
-                            plan.ProductionStartDate = monthStart;
-                            plan.ProductionEndDate = monthEnd;
+                            //plan.ProductionStartDate = monthStart;
+                            //plan.ProductionEndDate = monthEnd;
+                            plan.ProductionStartDate = null;
+                            plan.ProductionEndDate = null;
                         }
 
                         plan.UpdatedAt = DateTime.Now;
+                        plan.UpdatedBy = currentUser;
                     }
                     else
                     {
+                        plan.UpdatedAt = DateTime.Now;
+                        plan.UpdatedBy = currentUser;
                         // Không có DailyQuantities gửi lên -> giữ nguyên hành vi cũ (theo tháng)
                         plan.ProductionStartDate = monthStart;
                         plan.ProductionEndDate = monthEnd;
@@ -5007,6 +6055,14 @@ namespace EquipManagementAPI.Controllers
             if (month < 1 || month > 12 || year < 2000)
                 return BadRequest("month (1-12) hoặc year không hợp lệ.");
 
+            var result = await ComputeRevenueDetailsAsync(month, year, factoryId, teamId);
+            return Ok(result);
+        }
+
+        // Tách logic tính doanh thu chi tiết theo Tổ/Style/Ngày để tái sử dụng cho "revenue-cm-details-by-month"
+        private async Task<List<RevenueDetailItemDto>> ComputeRevenueDetailsAsync(
+            int month, int year, string? factoryId, string? teamId)
+        {
             var daysInMonth = DateTime.DaysInMonth(year, month);
             var startDate = new DateTime(year, month, 1);
             var endDate = new DateTime(year, month, daysInMonth);
@@ -5039,7 +6095,7 @@ namespace EquipManagementAPI.Controllers
                 .ToListAsync();
 
             if (rawSessions.Count == 0)
-                return Ok(Array.Empty<RevenueDetailItemDto>());
+                return new List<RevenueDetailItemDto>();
 
             var itemNos = rawSessions.Select(x => x.ItemNo).Distinct().ToList();
             var shiftCodes = rawSessions.Select(x => x.Id).Distinct().ToList();
@@ -5148,7 +6204,340 @@ namespace EquipManagementAPI.Controllers
                 .ThenBy(x => x.Customer)
                 .ToList();
 
-            return Ok(grouped);
+            return grouped;
+        }
+
+        // GET /api/production/labor-details-by-month
+        // Công lao động theo Tổ + theo ngày trong tháng:
+        //   - Tổng công       = Sum(WorkDay) từ "HR Daily Working Hour", nhóm theo Work Shift Code + DateIn
+        //   - Tổng giờ tăng ca = Sum(OverTime) từ "Register OverTime", nhóm theo Work Shift Code + Posting Date
+        [HttpGet("labor-details-by-month")]
+        public async Task<ActionResult<IEnumerable<LaborDetailItemDto>>> GetLaborDetailsByMonth(
+    [FromQuery] int month,
+    [FromQuery] int year,
+    [FromQuery] string? factoryId = null,
+    [FromQuery] string? teamId = null)
+        {
+            if (month < 1 || month > 12 || year < 2000)
+                return BadRequest("month (1-12) hoặc year không hợp lệ.");
+
+            var result = await ComputeLaborDetailsAsync(month, year, factoryId, teamId);
+            return Ok(result);
+        }
+
+        // Tách logic tính công lao động theo Tổ/Ngày để tái sử dụng cho "revenue-cm-details-by-month"
+        private async Task<List<LaborDetailItemDto>> ComputeLaborDetailsAsync(
+            int month, int year, string? factoryId, string? teamId)
+        {
+            var daysInMonth = DateTime.DaysInMonth(year, month);
+            var startDate = new DateTime(year, month, 1);
+            var endDate = new DateTime(year, month, daysInMonth, 23, 59, 59);
+
+            // ── 1. Tổng công — HR Daily Working Hour theo Tổ (Work Shift Code) + Ngày (DateIn) ──
+            var hrQuery = _context.HRDailyWorkingHours
+                .Where(h => h.DateIn >= startDate && h.DateIn <= endDate)
+                .AsNoTracking();
+
+            if (!string.IsNullOrWhiteSpace(factoryId) && factoryId != "all")
+                hrQuery = hrQuery.Where(h => h.WorkCenterCode == factoryId);
+            if (!string.IsNullOrWhiteSpace(teamId) && teamId != "all")
+                hrQuery = hrQuery.Where(h => h.WorkShiftCode == teamId);
+
+            var congByTeamDay = await hrQuery
+                .GroupBy(h => new { h.WorkShiftCode, Day = h.DateIn.Day })
+                .Select(g => new { g.Key.WorkShiftCode, g.Key.Day, Cong = g.Sum(x => x.WorkDay ?? 0) })
+                .ToListAsync();
+
+            // ── 2. Giờ tăng ca — Register OverTime theo Tổ (Work Shift Code) + Ngày (Posting Date) ──
+            // Register OverTime không có Work Center Code -> lọc theo nhà máy gián tiếp qua các mã Tổ
+            // đã xuất hiện ở bước 1 (khi có filter factoryId), hoặc lọc trực tiếp theo teamId nếu có.
+            var teamCodesInFactory = congByTeamDay.Select(x => x.WorkShiftCode).Distinct().ToList();
+
+            var otQuery = _context.RegisterOverTimes
+                .Where(o => o.PostingDate >= startDate && o.PostingDate <= endDate && o.WorkShiftCode != null)
+                .AsNoTracking();
+
+            if (!string.IsNullOrWhiteSpace(teamId) && teamId != "all")
+                otQuery = otQuery.Where(o => o.WorkShiftCode == teamId);
+            else if (!string.IsNullOrWhiteSpace(factoryId) && factoryId != "all")
+                otQuery = otQuery.Where(o => teamCodesInFactory.Contains(o.WorkShiftCode));
+
+            var overTimeByTeamDay = await otQuery
+                .GroupBy(o => new { WorkShiftCode = o.WorkShiftCode!, Day = o.PostingDate.Day })
+                .Select(g => new { g.Key.WorkShiftCode, g.Key.Day, OverTime = g.Sum(x => x.OverTime ?? 0) })
+                .ToListAsync();
+
+            // ── 3. Gộp danh sách mã Tổ (từ cả 2 nguồn) + tra tên Tổ từ workShift ──
+            var allTeamCodes = congByTeamDay.Select(x => x.WorkShiftCode)
+                .Union(overTimeByTeamDay.Select(x => x.WorkShiftCode))
+                .Distinct()
+                .ToList();
+
+            if (allTeamCodes.Count == 0)
+                return new List<LaborDetailItemDto>();
+
+            var teamNameLookup = await _context.workShift
+                .Where(w => allTeamCodes.Contains(w.Code))
+                .AsNoTracking()
+                .ToDictionaryAsync(w => w.Code, w => w.Name ?? w.Code);
+
+            var congLookup = congByTeamDay.ToDictionary(x => (x.WorkShiftCode, x.Day), x => x.Cong);
+            var otLookup = overTimeByTeamDay.ToDictionary(x => (x.WorkShiftCode, x.Day), x => x.OverTime);
+
+            var result = allTeamCodes.Select(code =>
+            {
+                var daily = new Dictionary<string, LaborDayDetailDto>();
+                for (var day = 1; day <= daysInMonth; day++)
+                {
+                    var cong = congLookup.GetValueOrDefault((code, day), 0m);
+                    var overTime = otLookup.GetValueOrDefault((code, day), 0m);
+                    if (cong == 0 && overTime == 0) continue;
+
+                    var iso = new DateTime(year, month, day).ToString("yyyy-MM-dd");
+                    daily[iso] = new LaborDayDetailDto { Cong = cong, OverTimeHours = overTime };
+                }
+
+                return new LaborDetailItemDto
+                {
+                    Id = code,
+                    ToMay = teamNameLookup.GetValueOrDefault(code, code),
+                    Daily = daily
+                };
+            })
+            .OrderBy(x => x.ToMay)
+            .ToList();
+
+            return result;
+        }
+
+        // GET /api/production/revenue-cm-details-by-month
+        // Doanh thu CM (USD) theo Tổ + theo ngày = Doanh thu (USD) / (Tổng công + Tổng giờ tăng ca / 9)
+        [HttpGet("revenue-cm-details-by-month")]
+        public async Task<ActionResult<IEnumerable<CmDetailItemDto>>> GetRevenueCmDetailsByMonth(
+    [FromQuery] int month,
+    [FromQuery] int year,
+    [FromQuery] string? factoryId = null,
+    [FromQuery] string? teamId = null)
+        {
+            if (month < 1 || month > 12 || year < 2000)
+                return BadRequest("month (1-12) hoặc year không hợp lệ.");
+
+            var revenueRows = await ComputeRevenueDetailsAsync(month, year, factoryId, teamId);
+            var laborRows = await ComputeLaborDetailsAsync(month, year, factoryId, teamId);
+
+            // Gộp doanh thu theo Tổ + Ngày (1 Tổ có thể có nhiều dòng do khác Style/OperationCode)
+            var revenueByTeamDay = new Dictionary<string, Dictionary<string, decimal>>();
+            var teamNameById = new Dictionary<string, string>();
+            foreach (var row in revenueRows)
+            {
+                teamNameById.TryAdd(row.Id, row.ToMay);
+                if (!revenueByTeamDay.TryGetValue(row.Id, out var bucket))
+                    revenueByTeamDay[row.Id] = bucket = new Dictionary<string, decimal>();
+                foreach (var (iso, revenue) in row.Daily ?? new Dictionary<string, decimal>())
+                    bucket[iso] = bucket.GetValueOrDefault(iso) + revenue;
+            }
+
+            var laborByTeam = new Dictionary<string, LaborDetailItemDto>();
+            foreach (var row in laborRows)
+            {
+                teamNameById.TryAdd(row.Id, row.ToMay);
+                laborByTeam[row.Id] = row;
+            }
+
+            var allTeamIds = revenueByTeamDay.Keys.Union(laborByTeam.Keys).ToList();
+            if (allTeamIds.Count == 0)
+                return Ok(Array.Empty<CmDetailItemDto>());
+
+            var daysInMonth = DateTime.DaysInMonth(year, month);
+            var result = allTeamIds.Select(id =>
+            {
+                var daily = new Dictionary<string, CmDayDetailDto>();
+                revenueByTeamDay.TryGetValue(id, out var revenueBucket);
+                laborByTeam.TryGetValue(id, out var laborRow);
+
+                for (var day = 1; day <= daysInMonth; day++)
+                {
+                    var iso = new DateTime(year, month, day).ToString("yyyy-MM-dd");
+                    var revenue = revenueBucket?.GetValueOrDefault(iso) ?? 0m;
+                    LaborDayDetailDto? laborCell = null;
+                    laborRow?.Daily?.TryGetValue(iso, out laborCell);
+                    var labor = (laborCell?.Cong ?? 0m) + (laborCell?.OverTimeHours ?? 0m) / 9m;
+                    if (revenue == 0 && labor == 0) continue;
+
+                    daily[iso] = new CmDayDetailDto
+                    {
+                        RevenueUsd = revenue,
+                        Labor = labor,
+                        Cm = labor > 0 ? revenue / labor : 0m
+                    };
+                }
+
+                return new CmDetailItemDto
+                {
+                    Id = id,
+                    ToMay = teamNameById.GetValueOrDefault(id, id),
+                    Daily = daily
+                };
+            })
+            .OrderBy(x => x.ToMay)
+            .ToList();
+
+            return Ok(result);
+        }
+
+        // GET /api/production/revenue-summary-by-month
+        // Báo cáo "Tổng hợp" doanh thu theo Tổ/Khách hàng/PO/Style — cộng dồn cả kỳ (không tách theo ngày)
+        [HttpGet("revenue-summary-by-month")]
+        public async Task<ActionResult<IEnumerable<RevenueSummaryItemDto>>> GetRevenueSummaryByMonth(
+    [FromQuery] int month,
+    [FromQuery] int year,
+    [FromQuery] string? factoryId = null,
+    [FromQuery] string? teamId = null)
+        {
+            if (month < 1 || month > 12 || year < 2000)
+                return BadRequest("month (1-12) hoặc year không hợp lệ.");
+
+            var startDate = new DateTime(year, month, 1);
+            var endDate = new DateTime(year, month, DateTime.DaysInMonth(year, month));
+            var monthStart = startDate;
+
+            // ── 1. Lấy dữ liệu sản lượng thực hiện trong kỳ ─────────────────────────
+            var qBase = _context.qualityManagementSessions
+                .Where(q => q.InspectionDate >= startDate && q.Status == 1
+                         && q.InspectionDate <= endDate
+                         && q.OperationType == "1")
+                .AsNoTracking();
+
+            if (!string.IsNullOrWhiteSpace(factoryId) && factoryId != "all")
+                qBase = qBase.Where(q => q.WorkCenterCode == factoryId);
+            if (!string.IsNullOrWhiteSpace(teamId) && teamId != "all")
+                qBase = qBase.Where(q => q.WorkShiftCode.ToString() == teamId);
+
+            var rawSessions = await qBase
+                .Join(_context.workShift.AsNoTracking(),
+                    q => q.WorkShiftCode.ToString(),
+                    w => w.Code,
+                    (q, w) => new
+                    {
+                        Id = w.Code,
+                        WorkShiftName = w.Name,
+                        q.CustomerNo_,
+                        q.SalesOrderNo,
+                        q.PoName,
+                        q.ItemNo,
+                        q.PassOutputQuantity
+                    })
+                .ToListAsync();
+
+            if (rawSessions.Count == 0)
+                return Ok(Array.Empty<RevenueSummaryItemDto>());
+
+            var itemNos = rawSessions.Select(x => x.ItemNo).Distinct().ToList();
+            var shiftCodes = rawSessions.Select(x => x.Id).Distinct().ToList();
+
+            // ── 2. Tên sản phẩm (Style) từ bảng Item ────────────────────────────────
+            var itemNameByNo = await _context.Item
+                .AsNoTracking()
+                .Where(i => itemNos.Contains(i.No))
+                .Select(i => new { i.No, i.Name })
+                .ToDictionaryAsync(i => i.No, i => i.Name);
+
+            // ── 3. Đơn giá CM (giống revenue-details-by-month) ──────────────────────
+            var cmPricesRaw = await _context.StyleCmPrice
+                .Where(p => itemNos.Contains(p.StyleId)
+                         && p.IsActive
+                         && p.EffectiveDate <= endDate
+                         && (p.ExpiredDate == null || p.ExpiredDate > startDate))
+                .Include(p => p.StyleCmSplits)
+                .AsNoTracking()
+                .ToListAsync();
+
+            var cmPriceByStyle = cmPricesRaw
+                .GroupBy(p => p.StyleId)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(p => p.EffectiveDate).First());
+
+            var operationStyleIds = cmPriceByStyle.Values.Where(p => p.IsOperation).Select(p => p.StyleId).Distinct().ToList();
+            var operationByTeamStyle = operationStyleIds.Count == 0
+                ? new Dictionary<(string StyleId, string LineNumber), string>()
+                : (await _context.MesFactoryPlans
+                    .Where(p => operationStyleIds.Contains(p.StyleId)
+                             && p.LineNumber != null && shiftCodes.Contains(p.LineNumber)
+                             && p.IsActive && p.OperationCode != null)
+                    .Select(p => new { p.StyleId, p.LineNumber, p.OperationCode, p.CreatedAt })
+                    .ToListAsync())
+                    .GroupBy(p => (StyleId: p.StyleId, LineNumber: p.LineNumber!))
+                    .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.CreatedAt).First().OperationCode!);
+
+            (decimal UnitPrice, string? OperationCode) ResolveUnitPrice(string styleId, string lineNumber)
+            {
+                if (!cmPriceByStyle.TryGetValue(styleId, out var cmPrice))
+                    return (0m, null);
+
+                if (!cmPrice.IsOperation)
+                    return (cmPrice.CmPrice, null);
+
+                if (operationByTeamStyle.TryGetValue((styleId, lineNumber), out var operationCode))
+                {
+                    var split = cmPrice.StyleCmSplits.FirstOrDefault(s => s.OperationCode == operationCode);
+                    if (split != null)
+                        return (split.SplitPrice, operationCode);
+                }
+
+                return (0m, null);
+            }
+
+            // ── 4. Tỷ giá VND (Local Exchange), theo ngày đầu tháng gần nhất ────────
+            var localExchangeRate = await _context.CurrencyExchangeRates
+                .Where(e => e.StartingDate <= monthStart)
+                .OrderByDescending(e => e.StartingDate)
+                .Select(e => e.LocalExchange)
+                .FirstOrDefaultAsync();
+
+            if (localExchangeRate == 0) localExchangeRate = 1m;
+
+            // ── 5. Gộp theo Tổ + Khách hàng + PO + Style, cộng dồn cả kỳ (không tách ngày) ──
+            var result = rawSessions
+                .Select(q =>
+                {
+                    var (unitPrice, operationCode) = ResolveUnitPrice(q.ItemNo, q.Id);
+                    itemNameByNo.TryGetValue(q.ItemNo, out var itemName);
+
+                    return new
+                    {
+                        q.Id,
+                        ToMay = q.WorkShiftName.ToString(),
+                        Customer = q.CustomerNo_,
+                        q.SalesOrderNo,
+                        q.PoName,
+                        ItemNo = q.ItemNo,
+                        Style = itemName ?? q.ItemNo,
+                        UnitPrice = unitPrice,
+                        OperationCode = operationCode,
+                        q.PassOutputQuantity,
+                        Revenue = unitPrice * (decimal)q.PassOutputQuantity
+                    };
+                })
+                .GroupBy(x => new { x.Id, x.ToMay, x.Customer, x.SalesOrderNo, x.PoName, x.ItemNo, x.Style, x.UnitPrice, x.OperationCode })
+                .Select(g => new RevenueSummaryItemDto
+                {
+                    Id = g.Key.Id,
+                    ToMay = g.Key.ToMay,
+                    Customer = g.Key.Customer,
+                    SalesOrderNo = g.Key.SalesOrderNo,
+                    PoName = g.Key.PoName,
+                    ItemNo = g.Key.ItemNo,
+                    Style = g.Key.Style,
+                    UnitPrice = g.Key.UnitPrice,
+                    OperationCode = g.Key.OperationCode,
+                    Quantity = g.Sum(x => x.PassOutputQuantity),
+                    RevenueUsd = g.Sum(x => x.Revenue),
+                    RevenueVnd = g.Sum(x => x.Revenue) * localExchangeRate
+                })
+                .OrderBy(x => x.ToMay)
+                .ThenBy(x => x.SalesOrderNo)
+                .ToList();
+
+            return Ok(result);
         }
 
         // GET /api/mes/cm-prices?factoryId=&year=&month=
@@ -6727,7 +8116,7 @@ namespace EquipManagementAPI.Controllers
             var allocatedTotal = siblingPlanIds.Count == 0
                 ? 0
                 : await _context.qualityManagementSessions
-                    .Where(q => q.PlanId != null && siblingPlanIds.Contains(q.PlanId.Value) && q.Status == 1)
+                    .Where(q => q.PlanId != null && siblingPlanIds.Contains(q.PlanId.Value) && q.Status == 0)
                     .SumAsync(q => (int?)q.PassOutputQuantity) ?? 0;
 
             return (originalTotal, allocatedTotal, siblingPlanIds);
@@ -7133,6 +8522,486 @@ namespace EquipManagementAPI.Controllers
             return Ok(new { success = true, data = new { updatedRows = items.Count } });
         }
 
+        [HttpGet("info-role")]
+        [ProducesResponseType(200)]
+        [ProducesResponseType(400)]
+        [ProducesResponseType(404)]
+        public async Task<UserRoleDTO> GetInforRoleUser(string userID)
+        {
+            try
+            {
+                var result = await (
+            from e in _context.employee
+            join wc in _context.Department on e.WorkCenterCode equals wc.Code into wcg
+            from wc in wcg.DefaultIfEmpty()
+            join ws in _context.locationXSDs on e.WorkShiftCode equals ws.Code into wcf
+            from ws in wcf.DefaultIfEmpty()
+            where e.No == userID || e.LoginId == userID
+            select new
+            {
+                e.LoginId,
+                Dto = new UserRoleDTO
+                {
+                    Name = e.Name,
+                    WorkCenterCode = e.WorkCenterCode,
+                    WorkCenterName = wc.Name,
+                    WorkShiftCode = e.WorkShiftCode,
+                    WorkShiftName = ws.Name
+                }
+            }
+            ).FirstOrDefaultAsync();
+                if (result == null) return null;
+
+                var user = result.Dto;
+
+                // 2. Lấy tất cả role của user (nhiều dòng)
+                var roles = await _context.UserSetupMobiles
+                    .Where(x => x.UserID == userID || x.UserID == result.LoginId)
+                    .Select(x => x.Role)
+                    .Distinct()
+                    .ToListAsync();
+
+                user.Roles = roles.Where(r => !string.IsNullOrWhiteSpace(r)).ToList();
+
+                // 3. Có role chứa "Admin" (vd: System Admin) thì được chọn nhà máy
+                user.IsAdmin = user.Roles.Any(r =>
+                    r.Contains("Admin", StringComparison.OrdinalIgnoreCase));
+
+                return user;
+            }
+            catch (Exception ex) { throw new Exception($"Lỗi: {ex.InnerException?.Message ?? ex.Message}"); }
+        }
+
+
+        [HttpGet("company-plan/unallocated-orders")]
+        public async Task<ActionResult<object>> GetUnallocatedOrders([FromQuery] UnallocatedOrdersQueryDto request)
+        {
+            var excludedStatuses = new[] { -1, 0, 1 };
+
+            // Header LEFT JOIN Line
+            var query =
+                from h in _context.SalesOrderHeader.AsNoTracking()
+                where !excludedStatuses.Contains(h.Status)
+                join l0 in _context.SalesOrderLine.AsNoTracking()
+                    on new { DocNo = h.No, h.SellToCustomerNo }
+                    equals new { DocNo = l0.DocumentNo, l0.SellToCustomerNo }
+                    into lines
+                from l in lines.DefaultIfEmpty()
+                    // Tương đương: LEFT JOIN Factory ... WHERE F.[Document No_] IS NULL
+                where !_context.SalesOrderLineFactories.Any(f =>
+                    f.DocumentNo == l.DocumentNo && f.SolLineNo == l.LineNo)
+                select new { h, l };
+
+            // ---- Bộ lọc từ UI ----
+            if (!string.IsNullOrWhiteSpace(request.Status) && request.Status != "all"
+                && int.TryParse(request.Status, out var statusVal))
+            {
+                query = query.Where(x => x.h.Status == statusVal);
+            }
+
+            if (request.PlanDateFrom.HasValue)
+            {
+                var fromDate = request.PlanDateFrom.Value.ToDateTime(TimeOnly.MinValue);
+                query = query.Where(x => x.h.OrderDate >= fromDate);
+            }
+
+            if (request.PlanDateTo.HasValue)
+            {
+                var toDate = request.PlanDateTo.Value.AddDays(1).ToDateTime(TimeOnly.MinValue);
+                query = query.Where(x => x.h.OrderDate < toDate);
+            }
+
+            var totalCount = await query.CountAsync();
+
+            var items = await query
+                .OrderByDescending(x => x.h.OrderDate)
+                .ThenBy(x => x.h.No)
+                .ThenBy(x => x.l.LineNo)
+                // .Skip((request.Page - 1) * request.PageSize)
+                // .Take(request.PageSize)
+                .Select(x => new
+                {
+                    documentNo = x.h.No,
+                    poCustomerName = x.h.POName,
+                    customerNo = x.h.SellToCustomerNo,
+                    orderType =  x.h.Type == 1 ? "Gia Công"
+              : x.h.Type == 2 ? "FOB"
+              : "",
+                    orderDate = x.h.OrderDate,
+                    requestedDeliveryDate = x.h.RequestedDeliveryDate,
+                    status = x.h.Status,
+                    loginId = x.h.LoginId,
+
+                    lineNo = (int?)x.l.LineNo,
+                    documentType = (int?)x.l.DocumentType,
+                    itemNo = x.l.No,
+                    colorNo = x.l.ColorNo,
+                    unitOfMeasure = x.l.UnitOfMeasure,
+                    quantity = (decimal?)x.l.Quantity,
+
+                    // LEFT JOIN [Item]
+                    itemName = _context.Item
+                        .Where(i => i.No == x.l.No)
+                        .Select(i => i.Name)
+                        .FirstOrDefault(),
+
+                    // SUM(Quantity) từ Sales Order Line Detail, ISNULL(..., 0)
+                    //totalQty = _context.SalesOrderLineDetails
+                    //    .Where(d => d.DocumentNo == x.l.DocumentNo
+                    //             && d.ItemLineNo == x.l.LineNo
+                    //             && d.ItemNo == x.l.No)
+                    //    .Sum(d => (decimal?)d.Quantity) ?? 0m
+                })
+                .ToListAsync();
+
+            return Ok(new
+            {
+                success = true,
+                data = new { items, totalCount, page = request.Page, pageSize = request.PageSize }
+            });
+        }
+
+        private static readonly int[] ExcludedUnallocatedStatuses = { -1, 0, 1 };
+
+        private static readonly Dictionary<string, string> AllocationSkipMessages = new()
+        {
+            ["NOT_FOUND"] = "Không tìm thấy dòng đơn hàng trong ERP.",
+            ["STATUS_NOT_APPROVED"] = "Đơn hàng chưa được duyệt trong ERP.",
+            ["ALREADY_ALLOCATED"] = "Dòng đơn hàng đã được phân cho nhà máy.",
+            ["DUPLICATE_IN_FACTORY"] = "Nhà máy đã có kế hoạch cùng Style, PO, Màu.",
+            ["DUPLICATE_IN_REQUEST"] = "Trùng Style, PO, Màu với dòng khác trong cùng lần thêm.",
+            ["NO_QUANTITY"] = "Chưa nhập số lượng.",
+            ["INVALID_QUANTITY"] = "Số lượng không hợp lệ.",
+            ["EXCEEDS_REMAINING"] = "Vượt số lượng còn lại theo size.",
+        };
+
+        private static string LineKey(string? documentNo, int lineNo)
+            => $"{(documentNo ?? string.Empty).Trim().ToUpperInvariant()}|{lineNo}";
+
+        private static string MatchKey(params string?[] parts)
+            => string.Join("|", parts.Select(p => (p ?? string.Empty).Trim().ToUpperInvariant()));
+
+        // Tính thông tin từng dòng ERP: trạng thái, trùng nhà máy, SL ERP/đã phân/còn lại theo size.
+        // Kết quả trả về đúng thứ tự và số lượng với refs đầu vào.
+        private async Task<List<UnallocatedOrderLineSizesDto>> BuildUnallocatedLineSizesAsync(
+            string factoryId, IEnumerable<UnallocatedOrderLineRefDto> refs)
+        {
+            var refList = refs.ToList();
+            var docNos = refList.Select(r => r.DocumentNo).Distinct().ToList();
+
+            var headerByNo = (await _context.SalesOrderHeader.AsNoTracking()
+                    .Where(h => docNos.Contains(h.No))
+                    .Select(h => new { h.No, h.POName, h.Status, h.RequestedDeliveryDate })
+                    .ToListAsync())
+                .GroupBy(h => h.No, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+            var lineByKey = (await _context.SalesOrderLine.AsNoTracking()
+                    .Where(l => docNos.Contains(l.DocumentNo))
+                    .Select(l => new { l.DocumentNo, l.LineNo, ItemNo = l.No, l.ColorNo })
+                    .ToListAsync())
+                .GroupBy(l => LineKey(l.DocumentNo, l.LineNo))
+                .ToDictionary(g => g.Key, g => g.First());
+
+            var allocatedLineKeys = (await _context.SalesOrderLineFactories.AsNoTracking()
+                    .Where(f => docNos.Contains(f.DocumentNo) && f.SolLineNo != null)
+                    .Select(f => new { f.DocumentNo, f.SolLineNo })
+                    .ToListAsync())
+                .Select(f => LineKey(f.DocumentNo, f.SolLineNo!.Value))
+                .ToHashSet();
+
+            var detailRows = await _context.SalesOrderLineDetails.AsNoTracking()
+                .Where(d => docNos.Contains(d.DocumentNo))
+                .Select(d => new { d.DocumentNo, d.ItemLineNo, d.ItemNo, d.SizeNo, d.Quantity })
+                .ToListAsync();
+
+            var activeVersionIds = _context.MesProductionOrderVersions
+                .Where(v => v.VersionStatus == "ACTIVE")
+                .Select(v => v.Id);
+
+            var mesItems = await _context.MesProductionOrderItems.AsNoTracking()
+                .Where(i => activeVersionIds.Contains(i.VersionId)
+                         && i.IsActive != false
+                         && docNos.Contains(i.PoId))
+                .Select(i => new { i.FactoryId, i.StyleId, i.PoId, i.ColorId, i.SizeId, i.PlannedQty })
+                .ToListAsync();
+
+            // SL đã phân theo size, tính trên tất cả nhà máy
+            var allocatedBySize = mesItems
+                .GroupBy(i => MatchKey(i.PoId, i.StyleId, i.ColorId, i.SizeId))
+                .ToDictionary(g => g.Key, g => g.Sum(x => x.PlannedQty));
+
+            // Khoá Style|PO|Color của nhà máy hiện tại (không tính size)
+            var factoryDuplicateKeys = mesItems
+                .Where(i => string.Equals(i.FactoryId, factoryId, StringComparison.OrdinalIgnoreCase))
+                .Select(i => MatchKey(i.StyleId, i.PoId, i.ColorId))
+                .ToHashSet();
+
+            var result = new List<UnallocatedOrderLineSizesDto>();
+            foreach (var r in refList)
+            {
+                var dto = new UnallocatedOrderLineSizesDto { DocumentNo = r.DocumentNo, LineNo = r.LineNo };
+
+                if (!lineByKey.TryGetValue(LineKey(r.DocumentNo, r.LineNo), out var erp)
+                    || !headerByNo.TryGetValue(r.DocumentNo, out var header))
+                {
+                    dto.UnavailableReason = "NOT_FOUND";
+                    result.Add(dto);
+                    continue;
+                }
+
+                dto.ItemNo = erp.ItemNo ?? string.Empty;
+                dto.ColorNo = erp.ColorNo ?? string.Empty;
+                dto.PoName = header.POName;
+                dto.RequestedDeliveryDate = header.RequestedDeliveryDate.HasValue
+                    ? DateOnly.FromDateTime(header.RequestedDeliveryDate.Value)
+                    : null;
+
+                if (ExcludedUnallocatedStatuses.Contains(header.Status))
+                    dto.UnavailableReason = "STATUS_NOT_APPROVED";
+                else if (allocatedLineKeys.Contains(LineKey(r.DocumentNo, r.LineNo)))
+                    dto.UnavailableReason = "ALREADY_ALLOCATED";
+
+                dto.IsAvailable = dto.UnavailableReason == null;
+                dto.FactoryConflict = factoryDuplicateKeys.Contains(MatchKey(dto.ItemNo, dto.DocumentNo, dto.ColorNo));
+
+                var erpSizes = detailRows
+                    .Where(d => d.DocumentNo == r.DocumentNo && d.ItemLineNo == r.LineNo && d.ItemNo == erp.ItemNo)
+                    .GroupBy(d => d.SizeNo)
+                    .Select(g => new { SizeNo = g.Key, Qty = g.Sum(x => x.Quantity ?? 0) })
+                    .OrderBy(s => s.SizeNo);
+
+                foreach (var s in erpSizes)
+                {
+                    var allocated = allocatedBySize.TryGetValue(
+                        MatchKey(dto.DocumentNo, dto.ItemNo, dto.ColorNo, s.SizeNo), out var a) ? a : 0;
+                    dto.Sizes.Add(new UnallocatedOrderSizeQtyDto
+                    {
+                        SizeNo = s.SizeNo,
+                        ErpQty = s.Qty,
+                        AllocatedQty = allocated,
+                        RemainingQty = Math.Max(0, s.Qty - allocated),
+                    });
+                }
+
+                result.Add(dto);
+            }
+
+            return result;
+        }
+
+        [HttpPost("company-plan/unallocated-orders/sizes")]
+        public async Task<ActionResult<object>> GetUnallocatedOrderSizes([FromBody] UnallocatedOrderSizesRequestDto request)
+        {
+            var factoryId = (request.FactoryId ?? string.Empty).Trim();
+            if (string.IsNullOrEmpty(factoryId))
+                return BadRequest(new { success = false, message = "Thiếu mã nhà máy." });
+            if (request.Lines == null || request.Lines.Count == 0)
+                return BadRequest(new { success = false, message = "Chưa chọn đơn hàng nào." });
+
+            var lines = await BuildUnallocatedLineSizesAsync(factoryId, request.Lines);
+            return Ok(new { success = true, data = lines });
+        }
+
+        [HttpPost("company-plan/unallocated-orders/allocate")]
+        public async Task<ActionResult<object>> AllocateUnallocatedOrders([FromBody] UnallocatedOrderAllocateRequestDto request)
+        {
+            var factoryId = (request.FactoryId ?? string.Empty).Trim();
+            if (string.IsNullOrEmpty(factoryId))
+                return BadRequest(new { success = false, message = "Thiếu mã nhà máy." });
+            if (request.Lines == null || request.Lines.Count == 0)
+                return BadRequest(new { success = false, message = "Chưa chọn đơn hàng nào." });
+
+            var createdBy = string.IsNullOrWhiteSpace(request.CreatedBy) ? "factory-user" : request.CreatedBy.Trim();
+            if (createdBy.Length > 50) createdBy = createdBy[..50];
+
+            var refs = request.Lines
+                .Select(l => new UnallocatedOrderLineRefDto { DocumentNo = l.DocumentNo, LineNo = l.LineNo })
+                .ToList();
+
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                var lineInfos = await BuildUnallocatedLineSizesAsync(factoryId, refs);
+                var now = DateTime.UtcNow;
+                var added = new List<object>();
+                var skipped = new List<object>();
+                var acceptedKeys = new HashSet<string>();
+                var toSave = new List<(UnallocatedOrderLineSizesDto Info, List<(string SizeNo, int Qty)> Sizes)>();
+
+                for (var i = 0; i < request.Lines.Count; i++)
+                {
+                    var input = request.Lines[i];
+                    var info = lineInfos[i];
+                    string? reason = null;
+                    string? detail = null;
+                    var sizesToAdd = new List<(string SizeNo, int Qty)>();
+
+                    if (!info.IsAvailable)
+                        reason = info.UnavailableReason;
+                    else if (info.FactoryConflict)
+                        reason = "DUPLICATE_IN_FACTORY";
+                    else if (input.Sizes.Any(s => s.Quantity < 0))
+                        reason = "INVALID_QUANTITY";
+                    else
+                    {
+                        sizesToAdd = input.Sizes
+                            .Where(s => s.Quantity > 0)
+                            .GroupBy(s => s.SizeNo)
+                            .Select(g => (SizeNo: g.Key, Qty: g.Sum(x => x.Quantity)))
+                            .ToList();
+
+                        if (sizesToAdd.Count == 0)
+                            reason = "NO_QUANTITY";
+                        else
+                        {
+                            var over = sizesToAdd
+                                .Select(q => (q.SizeNo, q.Qty, Remaining: info.Sizes.FirstOrDefault(x => x.SizeNo == q.SizeNo)?.RemainingQty ?? 0))
+                                .Where(q => q.Qty > q.Remaining)
+                                .ToList();
+
+                            if (over.Count > 0)
+                            {
+                                reason = "EXCEEDS_REMAINING";
+                                detail = string.Join(", ", over.Select(o => $"{o.SizeNo}: nhập {o.Qty}, còn {o.Remaining}"));
+                            }
+                            else if (!acceptedKeys.Add(MatchKey(info.ItemNo, info.DocumentNo, info.ColorNo)))
+                                reason = "DUPLICATE_IN_REQUEST";
+                        }
+                    }
+
+                    if (reason != null)
+                    {
+                        skipped.Add(new
+                        {
+                            documentNo = input.DocumentNo,
+                            lineNo = input.LineNo,
+                            itemNo = info.ItemNo,
+                            colorNo = info.ColorNo,
+                            reason,
+                            message = detail != null
+                                ? $"{AllocationSkipMessages[reason]} {detail}"
+                                : AllocationSkipMessages.GetValueOrDefault(reason, "Không thể thêm dòng này."),
+                        });
+                        continue;
+                    }
+
+                    toSave.Add((info, sizesToAdd));
+                }
+
+                // Nhóm theo Style (ItemNo) giống quy ước plan_code của sync: {factoryId}|{ItemNo}
+                foreach (var group in toSave.GroupBy(x => x.Info.ItemNo, StringComparer.OrdinalIgnoreCase))
+                {
+                    var planCode = $"{factoryId}|{group.Key}";
+                    var order = await _context.MesProductionOrders
+                        .FirstOrDefaultAsync(o => o.PlanCode == planCode);
+
+                    if (order == null)
+                    {
+                        order = new MesProductionOrder
+                        {
+                            Id = Guid.NewGuid(),
+                            PlanCode = planCode,
+                            PlanName = planCode,
+                            PlanPeriodFrom = null,
+                            PlanPeriodTo = null,
+                            Status = "APPROVED",
+                            CurrentVersion = 0,
+                            CreatedBy = createdBy,
+                            CreatedAt = now,
+                            UpdatedAt = now,
+                            IsActive = true,
+                        };
+                        _context.MesProductionOrders.Add(order);
+                    }
+
+                    var version = await _context.MesProductionOrderVersions
+                        .Where(v => v.ProductionOrderId == order.Id && v.VersionStatus == "ACTIVE")
+                        .OrderByDescending(v => v.VersionNumber)
+                        .FirstOrDefaultAsync();
+
+                    if (version == null)
+                    {
+                        var maxVersion = await _context.MesProductionOrderVersions
+                            .Where(v => v.ProductionOrderId == order.Id)
+                            .MaxAsync(v => (int?)v.VersionNumber);
+
+                        version = new MesProductionOrderVersion
+                        {
+                            Id = Guid.NewGuid(),
+                            ProductionOrderId = order.Id,
+                            VersionNumber = (maxVersion ?? 0) + 1,
+                            VersionStatus = "ACTIVE",
+                            TriggerType = "MANUAL",
+                            SourcePoType = "TEMP",
+                            ErpPoId = planCode,
+                            DeltaSummary = null,
+                            SupersededBy = null,
+                            CreatedBy = createdBy,
+                            CreatedAt = now,
+                        };
+                        _context.MesProductionOrderVersions.Add(version);
+                    }
+
+                    order.CurrentVersion = Math.Max(order.CurrentVersion, version.VersionNumber);
+                    order.UpdatedAt = now;
+
+                    foreach (var (info, sizes) in group)
+                    {
+                        var targetDate = info.RequestedDeliveryDate ?? DateOnly.FromDateTime(now);
+                        var poName = info.PoName;
+                        if (poName != null && poName.Length > 50) poName = poName[..50];
+
+                        foreach (var s in sizes)
+                        {
+                            _context.MesProductionOrderItems.Add(new MesProductionOrderItem
+                            {
+                                Id = Guid.NewGuid(),
+                                VersionId = version.Id,
+                                FactoryId = factoryId,
+                                StyleId = info.ItemNo,
+                                PoId = info.DocumentNo,
+                                ColorId = info.ColorNo,
+                                ShadeId = null,
+                                SizeId = s.SizeNo,
+                                PlannedQty = s.Qty,
+                                TargetDeliveryDate = targetDate,
+                                POName = poName,
+                                CreatedAt = now,
+                                UpdatedAt = now,
+                                UpdatedBy = createdBy,
+                                IsActive = true,
+                            });
+                        }
+
+                        added.Add(new
+                        {
+                            documentNo = info.DocumentNo,
+                            lineNo = info.LineNo,
+                            itemNo = info.ItemNo,
+                            colorNo = info.ColorNo,
+                            totalQty = sizes.Sum(s => s.Qty),
+                        });
+                    }
+                }
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return Ok(new
+                {
+                    success = true,
+                    message = $"Đã thêm {added.Count} dòng vào KHSX, bỏ qua {skipped.Count} dòng.",
+                    data = new { added, skipped },
+                });
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return StatusCode(500, new { success = false, message = "Lỗi khi lưu dữ liệu: " + ex.Message });
+            }
+        }
+
         //[HttpPatch("production-plans/{planId}/pause")]
         //public async Task<IActionResult> PausePlan(Guid planId, [FromBody] PausePlanRequest request)
         //{
@@ -7296,5 +9165,4 @@ namespace EquipManagementAPI.Controllers
 
 
 }
-
 

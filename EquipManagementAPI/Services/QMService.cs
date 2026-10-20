@@ -162,7 +162,7 @@ namespace EquipManagementAPI.Services
                    && plan.PoId == son
                    && line.WorkDate >= today                // đúng ngày hôm nay
                    && line.WorkDate < tomorrow && plan.IsActive == true
-                select new { plan.Id,plan.ColorId, line.PlannedQty }
+                select new { plan.Id, plan.ColorId, plan.TotalPlannedQty, line.PlannedQty }
             ).ToListAsync();
 
             // Tổng SL kế hoạch của cả style/ngày/tổ (không tách theo màu)
@@ -175,14 +175,27 @@ namespace EquipManagementAPI.Services
                  {
                      Id = g.First().Id,
                      ColorId = g.Key,
-                     PlanQty = g.Sum(x => x.PlannedQty)   // tổng riêng theo từng màu
-                 });
+                     PlanQty = g.Sum(x => x.PlannedQty),   // tổng riêng theo từng màu
+                     TotalPlannedQty = g.First().TotalPlannedQty
+                 })
+                 .ToList();
+
+            // Tổng SL đã thực hiện (PassOutputQuantity) theo PlanId trong QLCL
+            var planIds = colorList.Select(x => x.Id).ToList();
+            var passedByPlan = await _context.qualityManagementSessions
+                .AsNoTracking()
+                .Where(q => q.PlanId != null && planIds.Contains(q.PlanId.Value))
+                .GroupBy(q => q.PlanId!.Value)
+                .Select(g => new { PlanId = g.Key, Passed = g.Sum(x => x.PassOutputQuantity) })
+                .ToDictionaryAsync(x => x.PlanId, x => x.Passed);
 
             return colorList.Select(x => new ProductionPlanDTO
             {
                 PlanID = x.Id,
                 ColorNo = x.ColorId,
                 PlanQty = x.PlanQty,
+                // Còn lại = total_planned_qty của plan - số đã thực hiện
+                RemainQty = x.TotalPlannedQty - (passedByPlan.TryGetValue(x.Id, out var passed) ? passed : 0),
             }).ToList();
         }
 
@@ -334,31 +347,64 @@ namespace EquipManagementAPI.Services
                 var todayStart = DateTime.Today;
                 var tomorrowStart = todayStart.AddDays(1);
 
-                var plannedQtyToday = await _context.MesFactoryPlanLines
-                    .Where(l => l.FactoryPlanId == payload.planId && 
-                                l.WorkDate >= todayStart &&
-                                l.WorkDate < tomorrowStart)
-                    .SumAsync(l => (int?)l.PlannedQty) ?? 0;
-
-                var checkedQtyToday = await _context.qualityManagementSessions
-                    .Where(p => p.PlanId == payload.planId && p.Status==1 &&
-                                p.InspectionDate >= todayStart &&
-                                p.InspectionDate < tomorrowStart)
-                    .SumAsync(p => (int?)p.CheckedQuantity) ?? 0;
-
-                var newCheckedQty = payload.passOutputQty * payload.unitQuantity;
-                var totalCheckedQtyToday = checkedQtyToday + newCheckedQty;
-
-                if (plannedQtyToday > 0 && totalCheckedQtyToday > plannedQtyToday && !payload.confirmOverPlan)
+                if (payload.checkType == "1")
                 {
-                    return new
+                    var plannedQtyToday = await _context.MesFactoryPlanLines
+                        .Where(l => l.FactoryPlanId == payload.planId &&
+                                    l.WorkDate >= todayStart &&
+                                    l.WorkDate < tomorrowStart)
+                        .SumAsync(l => (int?)l.PlannedQty) ?? 0;
+
+                    var checkedQtyToday = await _context.qualityManagementSessions
+                        .Where(p => p.PlanId == payload.planId && p.Status == 1 && p.OperationType==payload.checkType &&
+                                    p.InspectionDate >= todayStart &&
+                                    p.InspectionDate < tomorrowStart)
+                        .SumAsync(p => (int?)p.PassOutputQuantity) ?? 0;
+
+                    var newCheckedQty = payload.passOutputQty * payload.unitQuantity;
+                    var totalCheckedQtyToday = checkedQtyToday + newCheckedQty;
+
+                    if (plannedQtyToday > 0 && totalCheckedQtyToday > plannedQtyToday && !payload.confirmOverPlan)
                     {
-                        Success = false,
-                        RequireConfirm = true,
-                        Message = $"Số lượng nhập ({totalCheckedQtyToday}) vượt quá kế hoạch trong ngày ({plannedQtyToday}). Bạn có muốn tiếp tục nhập không?",
-                        PlannedQty = plannedQtyToday,
-                        CheckedQty = totalCheckedQtyToday
-                    };
+                        return new
+                        {
+                            Success = false,
+                            RequireConfirm = true,
+                            ConfirmType = "plan",
+                            Message = $"Số lượng nhập ({totalCheckedQtyToday}) vượt quá kế hoạch trong ngày ({plannedQtyToday}). Bạn có muốn tiếp tục nhập không?",
+                            PlannedQty = plannedQtyToday,
+                            CheckedQty = totalCheckedQtyToday
+                        };
+                    }
+                }
+
+                //Kiểm tra tổng số lượng thoát chuyền của đơn hàng có vượt total_planned_qty (MesFactoryPlans) không
+                var orderTotalPlannedQty = await _context.MesFactoryPlans
+                    .Where(p => p.Id == payload.planId)
+                    .Select(p => p.TotalPlannedQty)
+                    .FirstOrDefaultAsync();
+
+                if (orderTotalPlannedQty > 0 && !payload.confirmOverOrder)
+                {
+                    var passedQtyOfOrder = await _context.qualityManagementSessions
+                        .Where(p => p.PlanId == payload.planId)
+                        .SumAsync(p => (int?)p.PassOutputQuantity) ?? 0;
+
+                    var newPassQty = payload.passOutputQty * payload.unitQuantity - payload.defectiveProductCount;
+                    var totalPassQtyOfOrder = passedQtyOfOrder + newPassQty;
+
+                    if (totalPassQtyOfOrder > orderTotalPlannedQty)
+                    {
+                        return new
+                        {
+                            Success = false,
+                            RequireConfirm = true,
+                            ConfirmType = "order",
+                            Message = $"Số lượng nhập ({totalPassQtyOfOrder}) vượt quá số lượng của đơn hàng ({orderTotalPlannedQty}). Bạn có muốn tiếp tục nhập không?",
+                            PlannedQty = orderTotalPlannedQty,
+                            CheckedQty = totalPassQtyOfOrder
+                        };
+                    }
                 }
 
                 var inspectionDate = DateTime.UtcNow; // hoặc DateTime.Now nếu muốn theo local
@@ -418,7 +464,7 @@ namespace EquipManagementAPI.Services
                     // (a) Tổng từ sessions kiểm thường hôm nay
                     var sessionSums = await _context.qualityManagementSessions
                         .Where(p =>
-                            p.WorkCenterCode == data.WorkCenterCode && p.Status==1 &&
+                            p.WorkCenterCode == data.WorkCenterCode && p.Status==1 && data.OperationType==payload.checkType &&
                             p.WorkShiftCode  == data.WorkShiftCode &&
                             p.Inspector      == data.Inspector &&
                             p.ItemNo         == data.ItemNo &&
@@ -1449,11 +1495,11 @@ namespace EquipManagementAPI.Services
 
                 // ── 2. Ki\u1ec3m tra ph\u00e2n c\u00f4ng ────────────────────────────────────────
                 var nowCheck = DateTime.UtcNow;
-                //var checkPhanCong = await _context.EmployeeAssignmentHistory
-                //    .Where(a => a.EmployeeNo == payload.inspector && (a.ToDate == null || a.ToDate >= nowCheck))
-                //    .FirstOrDefaultAsync();
-                //if (checkPhanCong == null)
-                //    throw new Exception("B\u1ea1n ch\u01b0a \u0111\u01b0\u1ee3c ph\u00e2n c\u00f4ng!");
+                var checkPhanCong = await _context.EmployeeAssignmentHistory
+                    .Where(a => a.EmployeeNo == payload.inspector && (a.ToDate == null || a.ToDate >= nowCheck))
+                    .FirstOrDefaultAsync();
+                if (checkPhanCong == null)
+                    throw new Exception("B\u1ea1n ch\u01b0a \u0111\u01b0\u1ee3c ph\u00e2n c\u00f4ng!");
 
                 // ── 3. Sinh ReinspectionNo t\u1eeb no-series "RE" ──────────────────
                 var reSeries = await _context.noSeriesLineQLCL

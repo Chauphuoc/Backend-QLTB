@@ -43,5 +43,8 @@ namespace EquipManagementAPI.Models.DTOs
 
         // Xác nhận của người dùng khi số lượng nhập vượt kế hoạch trong ngày (true = vẫn muốn lưu)
         public bool confirmOverPlan { get; set; } = false;
+
+        // Xác nhận khi tổng số lượng đã thoát chuyền vượt total_planned_qty của đơn hàng (MesFactoryPlans)
+        public bool confirmOverOrder { get; set; } = false;
     }
 }

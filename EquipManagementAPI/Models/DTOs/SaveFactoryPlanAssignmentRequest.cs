@@ -6,6 +6,7 @@
         public int Year { get; set; }
         public int Month { get; set; }
         public List<PlanRowDto> Rows { get; set; } = new();
+        public string UserId { get; set; }
     }
     public class PlanRowDto
     {

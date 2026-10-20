@@ -27,7 +27,7 @@ namespace EquipManagementAPI.Models
         public decimal SplitRatio { get; set; }
 
         [Required]
-        [Column("split_price", TypeName = "decimal(12,2)")]
+        [Column("split_price", TypeName = "decimal(12,4)")]
         public decimal SplitPrice { get; set; }
 
         [Column("effective_from")]

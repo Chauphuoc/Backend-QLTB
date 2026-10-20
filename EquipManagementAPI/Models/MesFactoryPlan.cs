@@ -108,5 +108,7 @@ namespace EquipManagementAPI.Models
         public MesFactoryPlan? Parent { get; set; }
         public ICollection<MesFactoryPlan> Children { get; set; } = new List<MesFactoryPlan>();
         public ICollection<MesFactoryPlanLine> Lines { get; set; } = new List<MesFactoryPlanLine>();
+        [Column("updated_by")]
+        public string? UpdatedBy { get; set; }
     }
 }

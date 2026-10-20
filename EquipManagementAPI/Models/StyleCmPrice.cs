@@ -15,7 +15,7 @@ namespace EquipManagementAPI.Models
         public string StyleId { get; set; } = string.Empty;
 
         [Required]
-        [Column("cm_price", TypeName = "decimal(12,2)")]
+        [Column("cm_price", TypeName = "decimal(12,4)")]
         public decimal CmPrice { get; set; }
 
         [Required]

@@ -40,5 +40,7 @@ namespace EquipManagementAPI.Models
         public DateTime UpdatedAt { get; set; }
         [ForeignKey(nameof(FactoryPlanId))]
         public MesFactoryPlan Plan { get; set; } = default!;
+        [Column("updated_by")]
+        public string? UpdatedBy { get; set; }
     }
 }

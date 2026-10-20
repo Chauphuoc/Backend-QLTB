@@ -14,6 +14,7 @@
         public string? ColorNo { get; set; }
         public string? SizeNo { get; set; }
         public int? PlanQty { get; set; }
+        public int? RemainQty { get; set; }
         public int? TargetPerDay { get; set; }
         public Guid PlanID { get; set; }
     }

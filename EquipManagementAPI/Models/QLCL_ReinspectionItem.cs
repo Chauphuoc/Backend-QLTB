@@ -50,6 +50,9 @@ namespace EquipManagementAPI.Models
         [StringLength(500)]
         public string? Note { get; set; }
 
+        [Column("plan_id")]
+        public Guid? PlanId { get; set; }
+
         // Navigation Property
         [ForeignKey(nameof(ReinspectionId))]
         public virtual QLCL_Reinspection Reinspection { get; set; }

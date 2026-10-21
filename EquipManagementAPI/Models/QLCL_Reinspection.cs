@@ -55,5 +55,8 @@ namespace EquipManagementAPI.Models
 
         public DateTimeOffset? FinalizedAt { get; set; }
         public string? OperationType { get; set; }
+
+        [Column("plan_id")]
+        public Guid? PlanId { get; set; }
     }
 }

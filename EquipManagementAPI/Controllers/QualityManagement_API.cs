@@ -530,6 +530,7 @@ namespace EquipManagementAPI.Controllers
     [FromQuery] string userID,
     [FromQuery] string style,
     [FromQuery] string workshiftcode,
+    [FromQuery] Guid? planId = null,
     [FromQuery] string? date = null
      )
         {
@@ -558,9 +559,17 @@ namespace EquipManagementAPI.Controllers
             var todayStart = checkDate;
             var tomorrowStart = checkDate.AddDays(1);
 
+            var hasPlanId = planId.HasValue && planId.Value != Guid.Empty;
+
             //Lấy tổng sl kiểm lại
             var qrKiemLai = await _context.qualityManagementSessions
-                .Where(p => p.ItemNo == style && p.WorkShiftCode == workshiftcode && p.Status==1 )
+                .Where(p =>
+                    p.Status == 1 &&
+                    p.InspectionDate >= todayStart &&
+                    p.InspectionDate < tomorrowStart &&
+                    (hasPlanId
+                        ? p.PlanId == planId.Value
+                        : (p.ItemNo == style && p.WorkShiftCode == workshiftcode)))
                 .GroupBy(x => 1)
                 .Select(g => new
                 {
@@ -568,14 +577,22 @@ namespace EquipManagementAPI.Controllers
                     CheckedQty = g.Sum(x => x.CheckedQuantity)
                 })
                 .FirstOrDefaultAsync();
-            //Lấy tổng sl kiểm đạt
-            var slKiemLai = (qrKiemLai?.CheckedQty ?? 0) - (qrKiemLai?.PassOutputQty ?? 0);
-            var totalPassed = await _context.Reinspections
-            .Where(a => a.ProductionTeamCode == workshiftcode
-                && _context.ReinspectionItems.Any(b => b.ReinspectionId == a.Id && b.Style == style))
-            .SumAsync(a => a.TotalPassed);
 
-            var defectQty = slKiemLai - totalPassed;
+            var slKiemLai = (qrKiemLai?.CheckedQty ?? 0) - (qrKiemLai?.PassOutputQty ?? 0);
+
+            //Lấy tổng sl kiểm đạt từ item "Pass"
+            var todayStartOffset = new DateTimeOffset(DateTime.SpecifyKind(todayStart, DateTimeKind.Unspecified), TimeSpan.Zero);
+            var tomorrowStartOffset = new DateTimeOffset(DateTime.SpecifyKind(tomorrowStart, DateTimeKind.Unspecified), TimeSpan.Zero);
+            var totalPassed = await _context.ReinspectionItems
+                .Where(i =>
+                    i.Result == "Pass" &&
+                    i.InspectedAt != null &&
+                    i.InspectedAt.Value >= todayStartOffset &&
+                    i.InspectedAt.Value < tomorrowStartOffset &&
+                    (hasPlanId ? i.PlanId == planId.Value : (i.Style == style && _context.Reinspections.Any(r => r.Id == i.ReinspectionId && r.ProductionTeamCode == workshiftcode))))
+                .SumAsync(i => (int?)i.Quantity) ?? 0;
+
+            var defectQty = Math.Max(0, slKiemLai - totalPassed);
                     
             var result = new OutputSummaryByUserDto
             {

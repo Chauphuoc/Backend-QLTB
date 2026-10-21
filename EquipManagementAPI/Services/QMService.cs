@@ -669,6 +669,36 @@ namespace EquipManagementAPI.Services
                         .Select(g => new { TeamId = g.Key, ThoatChuyen = g.Sum(x => x.PassOutputQuantity) })
                         .ToListAsync();
 
+                    var fromOffset = new DateTimeOffset(DateTime.SpecifyKind(fromDate.Value, DateTimeKind.Unspecified), TimeSpan.Zero);
+                    var toOffset = new DateTimeOffset(DateTime.SpecifyKind(toDate.Value, DateTimeKind.Unspecified), TimeSpan.Zero);
+
+                    var reinspectionActualsQuery =
+                        from ri in _context.ReinspectionItems
+                        join plan in _context.MesFactoryPlans on ri.PlanId equals plan.Id
+                        where ri.Result == "Pass"
+                           && ri.InspectedAt != null
+                           && ri.InspectedAt.Value >= fromOffset
+                           && ri.InspectedAt.Value < toOffset
+                        select new { plan.FactoryId, plan.LineNumber, ri.Quantity };
+
+                    if (!string.IsNullOrEmpty(factoryId) && factoryId != "all")
+                        reinspectionActualsQuery = reinspectionActualsQuery.Where(x => x.FactoryId == factoryId);
+
+                    var reinspectionActuals = await reinspectionActualsQuery
+                        .GroupBy(x => x.LineNumber)
+                        .Select(g => new { TeamId = g.Key, ThoatChuyen = g.Sum(x => x.Quantity) })
+                        .ToListAsync();
+
+                    var actualMap = actuals
+                        .GroupBy(x => x.TeamId)
+                        .ToDictionary(g => g.Key, g => g.Sum(x => x.ThoatChuyen));
+
+                    foreach (var re in reinspectionActuals)
+                    {
+                        if (string.IsNullOrWhiteSpace(re.TeamId)) continue;
+                        actualMap[re.TeamId] = (actualMap.TryGetValue(re.TeamId, out var current) ? current : 0) + re.ThoatChuyen;
+                    }
+
                 //var plansQuery = _context.ProductionPlans
                 //    .Where(p => p.ActualStartingDate.HasValue
                 //     && p.ActualStartingDate >= fromDate
@@ -708,7 +738,11 @@ namespace EquipManagementAPI.Services
                 //    .ToList();
 
                 // 3) Lấy tên tổ từ LocationXSDs
-                var teamCodes = actuals.Select(a => a.TeamId).Union(plans.Select(p => p.TeamId)).Where(c => c != null).Distinct().ToList();
+                var teamCodes = actualMap.Keys
+                    .Union(plans.Select(p => p.TeamId))
+                    .Where(c => c != null)
+                    .Distinct()
+                    .ToList();
                     var teamNames = await _context.locationXSDs
                         .Where(ws => teamCodes.Contains(ws.Code))
                         .Select(ws => new { ws.Code, ws.Name })
@@ -721,7 +755,7 @@ namespace EquipManagementAPI.Services
                             TeamId = code,
                             TeamName = teamNames.FirstOrDefault(t => t.Code == code)?.Name ?? string.Empty,
                             KeHoach = plans.FirstOrDefault(p => p.TeamId == code)?.KeHoach ?? 0,
-                            ThoatChuyen = actuals.FirstOrDefault(a => a.TeamId == code)?.ThoatChuyen ?? 0,
+                            ThoatChuyen = actualMap.TryGetValue(code, out var actualQty) ? actualQty : 0,
                         })
                         .Select(x =>
                         {
@@ -1365,6 +1399,30 @@ namespace EquipManagementAPI.Services
 
                 var actualDict = actuals.ToDictionary(x => x.Date, x => x.TotalOutput);
 
+                var fromOffset = new DateTimeOffset(DateTime.SpecifyKind(fromDt, DateTimeKind.Unspecified), TimeSpan.Zero);
+                var toOffset = new DateTimeOffset(DateTime.SpecifyKind(toDt, DateTimeKind.Unspecified), TimeSpan.Zero);
+
+                var reinspectionQuery =
+                    from ri in _context.ReinspectionItems
+                    join plan in _context.MesFactoryPlans on ri.PlanId equals plan.Id
+                    where ri.Result == "Pass"
+                       && ri.InspectedAt != null
+                       && ri.InspectedAt.Value >= fromOffset
+                       && ri.InspectedAt.Value <= toOffset
+                    select new { plan.FactoryId, ri.InspectedAt, ri.Quantity };
+
+                if (!string.IsNullOrWhiteSpace(factoryId) && !string.Equals(factoryId, "all", StringComparison.OrdinalIgnoreCase))
+                    reinspectionQuery = reinspectionQuery.Where(x => x.FactoryId == factoryId);
+
+                var reinspectionRows = await reinspectionQuery.ToListAsync();
+
+                var reinspectionByDay = reinspectionRows
+                    .GroupBy(x => x.InspectedAt!.Value.Date)
+                    .ToDictionary(g => g.Key, g => g.Sum(x => x.Quantity));
+
+                foreach (var (date, qty) in reinspectionByDay)
+                    actualDict[date] = (actualDict.TryGetValue(date, out var current) ? current : 0) + qty;
+
             // 2) Kế hoạch lấy từ mes.factory_plans + mes.factory_plan_lines
             // factory_plans: factory_id (≈ WorkCenterCode), style_id (≈ ItemNo)
             // factory_plan_lines: planned_qty theo ngày (created_at ≈ ActualStartingDate), workcenter_plan_id -> factory_plans.id
@@ -1428,12 +1486,64 @@ namespace EquipManagementAPI.Services
                     .OrderByDescending(x => x.Output)
                     .ToListAsync();
 
-                var totalOutput = grouped.Sum(x => x.Output);
+                var fromOffset = new DateTimeOffset(DateTime.SpecifyKind(from, DateTimeKind.Unspecified), TimeSpan.Zero);
+                var toOffset = new DateTimeOffset(DateTime.SpecifyKind(to, DateTimeKind.Unspecified), TimeSpan.Zero);
 
-                return grouped.Select(x => new StyleOutputDto
+                var reinspectionQuery =
+                    from ri in _context.ReinspectionItems
+                    join plan in _context.MesFactoryPlans on ri.PlanId equals plan.Id
+                    where ri.Result == "Pass"
+                       && ri.InspectedAt != null
+                       && ri.InspectedAt.Value >= fromOffset
+                       && ri.InspectedAt.Value <= toOffset
+                    select new { plan.FactoryId, StyleCode = ri.Style, ri.Quantity };
+
+                if (!string.IsNullOrWhiteSpace(factoryId) && !string.Equals(factoryId, "all", StringComparison.OrdinalIgnoreCase))
+                    reinspectionQuery = reinspectionQuery.Where(x => x.FactoryId == factoryId);
+
+                var reinspectionByStyle = await reinspectionQuery
+                    .Where(x => x.StyleCode != null && x.StyleCode != "")
+                    .GroupBy(x => x.StyleCode!)
+                    .Select(g => new { StyleCode = g.Key, Output = g.Sum(x => x.Quantity) })
+                    .ToListAsync();
+
+                var styleMap = grouped.ToDictionary(
+                    x => x.ItemNo ?? string.Empty,
+                    x => new StyleOutputDto
+                    {
+                        StyleCode = x.ItemNo,
+                        StyleName = x.ItemName,
+                        Output = x.Output,
+                        Percentage = 0
+                    },
+                    StringComparer.OrdinalIgnoreCase);
+
+                foreach (var re in reinspectionByStyle)
                 {
-                    StyleCode = x.ItemNo,
-                    StyleName = x.ItemName,
+                    if (!styleMap.TryGetValue(re.StyleCode, out var existing))
+                    {
+                        styleMap[re.StyleCode] = new StyleOutputDto
+                        {
+                            StyleCode = re.StyleCode,
+                            StyleName = re.StyleCode,
+                            Output = re.Output,
+                            Percentage = 0
+                        };
+                        continue;
+                    }
+
+                    existing.Output += re.Output;
+                }
+
+                var merged = styleMap.Values
+                    .OrderByDescending(x => x.Output)
+                    .ToList();
+                var totalOutput = merged.Sum(x => x.Output);
+
+                return merged.Select(x => new StyleOutputDto
+                {
+                    StyleCode = x.StyleCode,
+                    StyleName = x.StyleName,
                     Output = x.Output,
                     Percentage = totalOutput > 0
                         ? Math.Round((double)x.Output / totalOutput * 100, 2)
@@ -1492,14 +1602,16 @@ namespace EquipManagementAPI.Services
                     throw new Exception("Khi c\u00f3 s\u1ea3n ph\u1ea9m l\u1ed7i, ph\u1ea3i nh\u1eadp \u00edt nh\u1ea5t m\u1ed9t chi ti\u1ebft l\u1ed7i v\u1edbi s\u1ed1 l\u01b0\u1ee3ng > 0.");
                 if (defectQty == 0 && payload.defects != null && payload.defects.Any(d => d.Quantity > 0))
                     throw new Exception("S\u1ed1 s\u1ea3n ph\u1ea9m l\u1ed7i \u0111ang l\u00e0 0 nh\u01b0ng c\u00f3 chi ti\u1ebft l\u1ed7i v\u1edbi s\u1ed1 l\u01b0\u1ee3ng > 0.");
+                if (payload.planId == Guid.Empty)
+                    throw new Exception("Thi\u1ebfu PlanId cho phi\u1ebfn ki\u1ec3m l\u1ea1i.");
 
                 // ── 2. Ki\u1ec3m tra ph\u00e2n c\u00f4ng ────────────────────────────────────────
                 var nowCheck = DateTime.UtcNow;
                 var checkPhanCong = await _context.EmployeeAssignmentHistory
                     .Where(a => a.EmployeeNo == payload.inspector && (a.ToDate == null || a.ToDate >= nowCheck))
                     .FirstOrDefaultAsync();
-                if (checkPhanCong == null)
-                    throw new Exception("B\u1ea1n ch\u01b0a \u0111\u01b0\u1ee3c ph\u00e2n c\u00f4ng!");
+                //if (checkPhanCong == null)
+                //    throw new Exception("B\u1ea1n ch\u01b0a \u0111\u01b0\u1ee3c ph\u00e2n c\u00f4ng!");
 
                 // ── 3. Sinh ReinspectionNo t\u1eeb no-series "RE" ──────────────────
                 var reSeries = await _context.noSeriesLineQLCL
@@ -1543,7 +1655,8 @@ namespace EquipManagementAPI.Services
                     TotalScrapped     = defectQty,
                     FinalizedBy       = payload.inspector,
                     FinalizedAt       = DateTimeOffset.UtcNow,
-                    Notes             = null
+                    Notes             = null,
+                    PlanId            = payload.planId
                 };
                 await _context.Reinspections.AddAsync(reinspection);
                 await _context.SaveChangesAsync(); // c\u1ea7n Id tr\u01b0\u1edbc khi t\u1ea1o items
@@ -1566,7 +1679,8 @@ namespace EquipManagementAPI.Services
                         Result         = "Pass",
                         InspectorNo    = payload.inspector,
                         InspectedAt    = DateTimeOffset.UtcNow,
-                        Note           = null
+                        Note           = null,
+                        PlanId         = payload.planId
                     });
                 }
 
@@ -1587,7 +1701,8 @@ namespace EquipManagementAPI.Services
                             Result         = "Fail",
                             InspectorNo    = payload.inspector,
                             InspectedAt    = DateTimeOffset.UtcNow,
-                            Note           = d.Name
+                            Note           = d.Name,
+                            PlanId         = payload.planId
                         });
                     }
                 }
@@ -1616,7 +1731,8 @@ namespace EquipManagementAPI.Services
                         defectQty,
                         unit           = payload.unit,
                         unitQuantity   = payload.unitQuantity,
-                        inspector      = payload.inspector
+                        inspector      = payload.inspector,
+                        planId         = payload.planId
                     })
                 };
                 await _context.ReinspectionAudits.AddAsync(audit);
@@ -1674,9 +1790,13 @@ namespace EquipManagementAPI.Services
                 //var totalPass = (sessionSums?.PassQty ?? 0);
                 //var totalDefect = (sessionSums?.DefectQty ?? 0);
 
-                //Lấy tổng sl kiểm lại
+                //Lấy tổng sl lỗi phát sinh theo kế hoạch
                 var qrKiemLai = await _context.qualityManagementSessions
-                    .Where(p => p.ItemNo == payload.style && p.WorkShiftCode == payload.productionTeam && p.Status==1)
+                    .Where(p =>
+                        p.PlanId == payload.planId &&
+                        p.Status == 1 &&
+                        p.InspectionDate >= today &&
+                        p.InspectionDate < tomorrow)
                     .GroupBy(x => 1)
                     .Select(g => new
                     {
@@ -1684,14 +1804,19 @@ namespace EquipManagementAPI.Services
                         CheckedQty = g.Sum(x => x.CheckedQuantity)
                     })
                     .FirstOrDefaultAsync();
-                //Lấy tổng sl kiểm đạt
                 var slKiemLai = (qrKiemLai?.CheckedQty ?? 0) - (qrKiemLai?.PassOutputQty ?? 0);
-                var totalPassed = await _context.Reinspections
-                .Where(a => a.ProductionTeamCode == payload.productionTeam
-                    && _context.ReinspectionItems.Any(b => b.ReinspectionId == a.Id && b.Style == payload.style))
-                .SumAsync(a => a.TotalPassed);
+                var todayOffset = new DateTimeOffset(DateTime.SpecifyKind(today, DateTimeKind.Unspecified), TimeSpan.Zero);
+                var tomorrowOffset = new DateTimeOffset(DateTime.SpecifyKind(tomorrow, DateTimeKind.Unspecified), TimeSpan.Zero);
+                var totalPassed = await _context.ReinspectionItems
+                    .Where(i =>
+                        i.PlanId == payload.planId &&
+                        i.Result == "Pass" &&
+                        i.InspectedAt != null &&
+                        i.InspectedAt.Value >= todayOffset &&
+                        i.InspectedAt.Value < tomorrowOffset)
+                    .SumAsync(i => (int?)i.Quantity) ?? 0;
 
-                var totalDefect = slKiemLai - totalPassed;
+                var totalDefect = Math.Max(0, slKiemLai - totalPassed);
                 return new
                 {
                     success         = true,

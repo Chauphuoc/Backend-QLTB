@@ -111,3 +111,4 @@ $RECYCLE.BIN/
 
 # VS Code settings
 .vscode/
+_buildcheck/firebase-service-account.json

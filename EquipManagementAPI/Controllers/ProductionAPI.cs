@@ -375,6 +375,98 @@ namespace EquipManagementAPI.Controllers
             .OrderByDescending(r => r.SlThoatChuyen)
             .ToListAsync();
 
+            var fromOffset = new DateTimeOffset(DateTime.SpecifyKind(from.ToDateTime(TimeOnly.MinValue), DateTimeKind.Unspecified), TimeSpan.Zero);
+            var toOffset = new DateTimeOffset(DateTime.SpecifyKind(to.ToDateTime(TimeOnly.MaxValue), DateTimeKind.Unspecified), TimeSpan.Zero);
+
+            var reinspectionRowsQuery =
+                from ri in _context.ReinspectionItems
+                join plan in _context.MesFactoryPlans on ri.PlanId equals plan.Id
+                join ws in _context.locationXSDs on plan.LineNumber equals ws.Code into wsJoin
+                from ws in wsJoin.DefaultIfEmpty()
+                where ri.Result == "Pass"
+                   && ri.InspectedAt != null
+                   && ri.InspectedAt.Value >= fromOffset
+                   && ri.InspectedAt.Value <= toOffset
+                select new
+                {
+                    plan.FactoryId,
+                    WorkShiftCode = plan.LineNumber,
+                    ToMay = ws != null ? ws.Name : plan.LineNumber,
+                    ItemNo = ri.Style,
+                    Style = (string?)null,
+                    Po = ri.PO,
+                    ColorNo = ri.Color,
+                    Size = ri.Size,
+                    Quantity = ri.Quantity
+                };
+
+            if (!string.IsNullOrWhiteSpace(factoryId) && factoryId != "all")
+                reinspectionRowsQuery = reinspectionRowsQuery.Where(x => x.FactoryId == factoryId);
+
+            var reinspectionRows = await reinspectionRowsQuery
+                .GroupBy(x => new
+                {
+                    x.WorkShiftCode,
+                    x.ToMay,
+                    x.ItemNo,
+                    x.Po,
+                    x.ColorNo,
+                    x.Size,
+                })
+                .Select(g => new
+                {
+                    WorkShiftCode = g.Key.WorkShiftCode,
+                    ItemNo = g.Key.ItemNo,
+                    ToMay = g.Key.ToMay,
+                    Style = (string?)null,
+                    Po = g.Key.Po,
+                    ColorNo = g.Key.ColorNo,
+                    Size = g.Key.Size,
+                    SlKiem = 0,
+                    SlThoatChuyen = g.Sum(x => x.Quantity),
+                })
+                .ToListAsync();
+
+            var mergedRows = rows
+                .Concat(reinspectionRows)
+                .GroupBy(r => new
+                {
+                    r.WorkShiftCode,
+                    r.ItemNo,
+                    r.ToMay,
+                    r.Po,
+                    r.ColorNo,
+                    r.Size,
+                })
+                .Select(g => new
+                {
+                    g.Key.WorkShiftCode,
+                    g.Key.ItemNo,
+                    g.Key.ToMay,
+                    Style = g.Select(x => x.Style)
+                        .FirstOrDefault(s => !string.IsNullOrWhiteSpace(s)),
+                    g.Key.Po,
+                    g.Key.ColorNo,
+                    g.Key.Size,
+                    SlKiem = g.Sum(x => x.SlKiem),
+                    SlThoatChuyen = g.Sum(x => x.SlThoatChuyen),
+                })
+                .OrderByDescending(r => r.SlThoatChuyen)
+                .ToList();
+
+            var mergedItemNos = mergedRows
+                .Select(r => r.ItemNo)
+                .Where(i => !string.IsNullOrWhiteSpace(i))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var styleNameByItemNo = mergedItemNos.Count > 0
+                ? await _context.Item
+                    .Where(i => mergedItemNos.Contains(i.No))
+                    .Select(i => new { i.No, i.Name })
+                    .ToDictionaryAsync(i => i.No, i => i.Name ?? i.No, StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
             // ── Kế hoạch từ ProductionPlans: lọc theo ngày + nhà máy, load về memory, lấy Max per (Tổ, Style) ──
             var planFromDt = from.ToDateTime(TimeOnly.MinValue);
             var planToDt   = to.ToDateTime(TimeOnly.MaxValue);
@@ -412,13 +504,19 @@ namespace EquipManagementAPI.Controllers
                 .GroupBy(p => (p.LineNumber, p.StyleId, p.ColorId))
                 .ToDictionary(g => g.Key, g => g.Sum(x => x.PlannedQty));
 
-            var result = rows.Select(r =>
+            var result = mergedRows.Select(r =>
             {
                 var slKeHoach = planDict.TryGetValue((r.WorkShiftCode, r.ItemNo, r.ColorNo), out var kh) ? kh : 0;
+                var fallbackStyleName = !string.IsNullOrWhiteSpace(r.ItemNo) && styleNameByItemNo.TryGetValue(r.ItemNo, out var itemStyleName)
+                    ? itemStyleName
+                    : r.ItemNo;
+                var resolvedStyleName = string.IsNullOrWhiteSpace(r.Style) || string.Equals(r.Style, r.ItemNo, StringComparison.OrdinalIgnoreCase)
+                    ? fallbackStyleName
+                    : r.Style;
                 return new ProductionDetailDto
                 {
                     ToMay = r.ToMay,
-                    Style = r.Style,
+                    Style = resolvedStyleName,
                     Po = r.Po,
                     ColorNo = r.ColorNo,
                     Size = r.Size,
@@ -556,12 +654,68 @@ namespace EquipManagementAPI.Controllers
                 })
                 .ToListAsync();
 
+            var fromOffset = new DateTimeOffset(DateTime.SpecifyKind(planFromDt, DateTimeKind.Unspecified), TimeSpan.Zero);
+            var toOffset = new DateTimeOffset(DateTime.SpecifyKind(planToDt, DateTimeKind.Unspecified), TimeSpan.Zero);
+
+            var reinspectionQuery =
+                from ri in _context.ReinspectionItems
+                join plan in _context.MesFactoryPlans on ri.PlanId equals plan.Id
+                where ri.Result == "Pass"
+                   && ri.InspectedAt != null
+                   && ri.InspectedAt.Value >= fromOffset
+                   && ri.InspectedAt.Value <= toOffset
+                select new
+                {
+                    plan.FactoryId,
+                    WorkShiftCode = plan.LineNumber,
+                    ItemNo = ri.Style,
+                    ColorNo = ri.Color,
+                    Size = ri.Size,
+                    SalesOrderNo = ri.PO,
+                    Quantity = ri.Quantity,
+                };
+
+            if (!string.IsNullOrWhiteSpace(factoryId) && factoryId != "all")
+                reinspectionQuery = reinspectionQuery.Where(x => x.FactoryId == factoryId);
+
+            var reinspectionData = await reinspectionQuery
+                .GroupBy(x => new
+                {
+                    x.WorkShiftCode,
+                    x.ItemNo,
+                    x.ColorNo,
+                    x.Size,
+                    x.SalesOrderNo,
+                })
+                .Select(g => new
+                {
+                    g.Key.WorkShiftCode,
+                    g.Key.ItemNo,
+                    g.Key.ColorNo,
+                    g.Key.Size,
+                    g.Key.SalesOrderNo,
+                    SlThoatChuyen = g.Sum(x => x.Quantity),
+                })
+                .ToListAsync();
+
             // ── 5. Build lookup từ QC data theo key (WorkShiftCode||ItemNo||ColorNo||Size||PoName) ──
             var qcDict = qcData.ToDictionary(
                 q => $"{q.WorkShiftCode}||{q.ItemNo}||{q.ColorNo}||{q.Size}||{q.SalesOrderNo}",
                 q => (SlKiem: q.SlKiem, SlThoatChuyen: q.SlThoatChuyen),
                 StringComparer.OrdinalIgnoreCase
             );
+
+            foreach (var re in reinspectionData)
+            {
+                var key = $"{re.WorkShiftCode}||{re.ItemNo}||{re.ColorNo}||{re.Size}||{re.SalesOrderNo}";
+                if (qcDict.TryGetValue(key, out var existing))
+                {
+                    qcDict[key] = (existing.SlKiem, existing.SlThoatChuyen + re.SlThoatChuyen);
+                    continue;
+                }
+
+                qcDict[key] = (0, re.SlThoatChuyen);
+            }
 
             // ── 6. Gộp: plan baseline + name lookups + QC data ───────────────────
             var result = planGroups
@@ -629,6 +783,37 @@ namespace EquipManagementAPI.Controllers
                 .GroupBy(q => q.InspectionDate.Day)
                 .Select(g => new { Day = g.Key, ThucHien = g.Sum(x => x.PassOutputQuantity) })
                 .ToDictionaryAsync(x => x.Day, x => x.ThucHien);
+
+            var fromOffset = new DateTimeOffset(DateTime.SpecifyKind(startDate, DateTimeKind.Unspecified), TimeSpan.Zero);
+            var toOffset = new DateTimeOffset(DateTime.SpecifyKind(endDate.AddDays(1).AddTicks(-1), DateTimeKind.Unspecified), TimeSpan.Zero);
+
+            var reinspectionQuery =
+                from ri in _context.ReinspectionItems
+                join plan in _context.MesFactoryPlans on ri.PlanId equals plan.Id
+                where ri.Result == "Pass"
+                   && ri.InspectedAt != null
+                   && ri.InspectedAt.Value >= fromOffset
+                   && ri.InspectedAt.Value <= toOffset
+                select new
+                {
+                    plan.FactoryId,
+                    TeamId = plan.LineNumber,
+                    ri.InspectedAt,
+                    ri.Quantity
+                };
+
+            if (!string.IsNullOrWhiteSpace(factoryId) && factoryId != "all")
+                reinspectionQuery = reinspectionQuery.Where(x => x.FactoryId == factoryId);
+            if (!string.IsNullOrWhiteSpace(teamId) && teamId != "all")
+                reinspectionQuery = reinspectionQuery.Where(x => x.TeamId == teamId);
+
+            var reinspectionRows = await reinspectionQuery.ToListAsync();
+            var reinspectionByDay = reinspectionRows
+                .GroupBy(x => x.InspectedAt!.Value.Day)
+                .ToDictionary(g => g.Key, g => g.Sum(x => x.Quantity));
+
+            foreach (var (day, qty) in reinspectionByDay)
+                actualByDay[day] = (actualByDay.TryGetValue(day, out var existing) ? existing : 0) + qty;
 
             // ── Query kế hoạch theo ngày ──────────────────────────────────────────
             // Điều chỉnh tên bảng / cột cho đúng schema
@@ -5241,6 +5426,75 @@ namespace EquipManagementAPI.Controllers
                           .ToDictionary(dg => dg.Key.ToString("yyyy-MM-dd"), dg => dg.Sum(qty)));
         }
 
+        private static Dictionary<Guid, Dictionary<string, int>> MergeDailyMaps(
+            Dictionary<Guid, Dictionary<string, int>> primary,
+            Dictionary<Guid, Dictionary<string, int>> additional)
+        {
+            var merged = primary.ToDictionary(
+                kv => kv.Key,
+                kv => kv.Value.ToDictionary(d => d.Key, d => d.Value));
+
+            foreach (var (planId, qtyByDate) in additional)
+            {
+                if (!merged.TryGetValue(planId, out var targetByDate))
+                {
+                    merged[planId] = qtyByDate.ToDictionary(d => d.Key, d => d.Value);
+                    continue;
+                }
+
+                foreach (var (dateKey, qty) in qtyByDate)
+                    targetByDate[dateKey] = (targetByDate.TryGetValue(dateKey, out var existing) ? existing : 0) + qty;
+            }
+
+            return merged;
+        }
+
+        private async Task<Dictionary<Guid, Dictionary<string, int>>> LoadReinspectionPassDailyMapAsync(
+            IEnumerable<Guid> planIds, DateTime fromDt, DateTime toDt)
+        {
+            var ids = planIds.Distinct().ToList();
+            if (ids.Count == 0) return new Dictionary<Guid, Dictionary<string, int>>();
+
+            var fromOffset = new DateTimeOffset(DateTime.SpecifyKind(fromDt, DateTimeKind.Unspecified), TimeSpan.Zero);
+            var toOffset = new DateTimeOffset(DateTime.SpecifyKind(toDt, DateTimeKind.Unspecified), TimeSpan.Zero);
+
+            var passRows = await _context.ReinspectionItems.AsNoTracking()
+                .Where(ri => ri.PlanId != null
+                          && ids.Contains(ri.PlanId.Value)
+                          && ri.Result == "Pass"
+                          && ri.InspectedAt != null
+                          && ri.InspectedAt.Value >= fromOffset
+                          && ri.InspectedAt.Value <= toOffset)
+                .Select(ri => new
+                {
+                    PlanId = ri.PlanId!.Value,
+                    InspectedAt = ri.InspectedAt!.Value,
+                    ri.Quantity
+                })
+                .ToListAsync();
+
+            return ToDailyMap(passRows, r => r.PlanId, r => r.InspectedAt.UtcDateTime, r => r.Quantity);
+        }
+
+        private async Task<Dictionary<Guid, int>> LoadReinspectionPassByPlanUntilAsync(
+            IEnumerable<Guid> planIds, DateTime toDt)
+        {
+            var ids = planIds.Distinct().ToList();
+            if (ids.Count == 0) return new Dictionary<Guid, int>();
+
+            var toOffset = new DateTimeOffset(DateTime.SpecifyKind(toDt, DateTimeKind.Unspecified), TimeSpan.Zero);
+
+            return await _context.ReinspectionItems.AsNoTracking()
+                .Where(ri => ri.PlanId != null
+                          && ids.Contains(ri.PlanId.Value)
+                          && ri.Result == "Pass"
+                          && ri.InspectedAt != null
+                          && ri.InspectedAt.Value <= toOffset)
+                .GroupBy(ri => ri.PlanId!.Value)
+                .Select(g => new { PlanId = g.Key, Qty = g.Sum(x => x.Quantity) })
+                .ToDictionaryAsync(x => x.PlanId, x => x.Qty);
+        }
+
 
         // ---------------------------------------------------------------------------
         // 3) TAB ĐƠN HÀNG
@@ -5432,7 +5686,9 @@ namespace EquipManagementAPI.Controllers
                          && q.Status == 1 && q.OperationType == "1")
                 .Select(q => new { PlanId = q.PlanId!.Value, q.InspectionDate, q.PassOutputQuantity })
                 .ToListAsync();
-            var actualQtyByDateMap = ToDailyMap(qlclByPlanRaw, q => q.PlanId, q => q.InspectionDate, q => q.PassOutputQuantity);
+            var sessionActualQtyByDateMap = ToDailyMap(qlclByPlanRaw, q => q.PlanId, q => q.InspectionDate, q => q.PassOutputQuantity);
+            var reinspectionActualQtyByDateMap = await LoadReinspectionPassDailyMapAsync(planIds, fromDt, toDt);
+            var actualQtyByDateMap = MergeDailyMaps(sessionActualQtyByDateMap, reinspectionActualQtyByDateMap);
 
             // ---- KH của hôm nay (không giới hạn theo kỳ đang xem) — dùng tính trạng thái "đang sản xuất" ----
             var today = DateTime.Today;
@@ -5460,6 +5716,16 @@ namespace EquipManagementAPI.Controllers
             var actualQtyMap = qlclRaw
                 .GroupBy(q => (WorkShift: q.WorkShiftCode, StyleId: q.ItemNo, ColorId: q.ColorNo))
                 .ToDictionary(g => g.Key, g => g.Sum(x => x.PassOutputQuantity));
+
+            var reinspectionActualByPlanId = await LoadReinspectionPassByPlanUntilAsync(planIds, todayEndDt);
+            var reinspectionActualQtyMap = planLinePlans
+                .GroupBy(p => (WorkShift: p.LineNumber!, StyleId: p.StyleId, ColorId: p.ColorId))
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.Sum(p => reinspectionActualByPlanId.TryGetValue(p.Id, out var qty) ? qty : 0));
+
+            foreach (var (key, qty) in reinspectionActualQtyMap)
+                actualQtyMap[key] = (actualQtyMap.TryGetValue(key, out var existing) ? existing : 0) + qty;
 
             // =========================================================
             // PO NGUỒN ĐÃ GỘP vào các dòng hiện tại (đã bỏ điều kiện IsActive — nguồn luôn IsActive=false)
@@ -5492,7 +5758,9 @@ namespace EquipManagementAPI.Controllers
                          && q.Status == 0)
                 .Select(q => new { PlanId = q.PlanId!.Value, q.InspectionDate, q.PassOutputQuantity })
                 .ToListAsync();
-            var mergedSourceActualByDateMap = ToDailyMap(mergedSourceQlclRaw, q => q.PlanId, q => q.InspectionDate, q => q.PassOutputQuantity);
+            var mergedSourceSessionActualByDateMap = ToDailyMap(mergedSourceQlclRaw, q => q.PlanId, q => q.InspectionDate, q => q.PassOutputQuantity);
+            var mergedSourceReinspectionActualByDateMap = await LoadReinspectionPassDailyMapAsync(mergedSourcePlanIds, fromDt, toDt);
+            var mergedSourceActualByDateMap = MergeDailyMaps(mergedSourceSessionActualByDateMap, mergedSourceReinspectionActualByDateMap);
 
             List<object> ResolveMergedFromPos(Guid planId)
             {
@@ -5564,7 +5832,9 @@ namespace EquipManagementAPI.Controllers
                          && q.Status == 0)
                 .Select(q => new { PlanId = q.PlanId!.Value, q.InspectionDate, q.PassOutputQuantity })
                 .ToListAsync();
-            var parentPlanActualByDateMap = ToDailyMap(parentPlanQlclRaw, q => q.PlanId, q => q.InspectionDate, q => q.PassOutputQuantity);
+            var parentPlanSessionActualByDateMap = ToDailyMap(parentPlanQlclRaw, q => q.PlanId, q => q.InspectionDate, q => q.PassOutputQuantity);
+            var parentPlanReinspectionActualByDateMap = await LoadReinspectionPassDailyMapAsync(parentPlanIds, fromDt, toDt);
+            var parentPlanActualByDateMap = MergeDailyMaps(parentPlanSessionActualByDateMap, parentPlanReinspectionActualByDateMap);
 
             // Số dòng (tổ) đã được tách ra từ cùng 1 plan cha
             var splitSiblingCountMap = planLinePlans
@@ -9165,4 +9435,3 @@ namespace EquipManagementAPI.Controllers
 
 
 }
-
